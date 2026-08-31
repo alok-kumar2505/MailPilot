@@ -1,52 +1,103 @@
-import { Worker, Job } from 'bullmq';
+import { Worker, Job, DelayedError } from 'bullmq';
 import { redis } from '../config/redis';
 import { env } from '../config/env';
 import { emailRepository } from '../repositories/email.repository';
+import { senderRepository } from '../repositories/sender.repository';
+import { emailSender } from '../integrations/email.sender';
 
-// Set up the worker
 const emailWorker = new Worker(
   'email-send',
   async (job: Job) => {
     const { emailJobId } = job.data;
     console.log(`[Worker] Picked up BullMQ Job ID: ${job.id} for EmailJob ID: ${emailJobId}`);
 
-    // 1. Mark as PROCESSING in PostgreSQL
-    await emailRepository.updateJobStatus(emailJobId, {
-      status: 'PROCESSING',
-      attempts: job.attemptsMade + 1,
-    });
+    // 1. IDEMPOTENCY: Atomically claim the job. If 0 rows affected, it's already sent or processing elsewhere.
+    const claimedJob = await emailRepository.claimJobForProcessing(emailJobId);
+    if (!claimedJob) {
+      console.log(`[Worker] Job ${emailJobId} could not be claimed. Already processed or invalid state. Skipping.`);
+      return;
+    }
 
-    // 2. Fetch the job details (optional, if we need recipient, subject, etc.)
-    const emailJob = await emailRepository.findJobById(emailJobId);
-    if (!emailJob) {
-      throw new Error(`EmailJob ${emailJobId} not found in database!`);
+    const senderId = claimedJob.sender_id || 'default';
+
+    // 2. RATE LIMITING: Check Redis atomic counters per sender per hour window
+    const currentHour = new Date().toISOString().slice(0, 13); // e.g. "2026-09-01T10"
+    const rateKey = `email-rate:${senderId}:${currentHour}`;
+    const count = await redis.incr(rateKey);
+    
+    if (count === 1) {
+      await redis.expire(rateKey, 3600); // Expire after 1 hour
+    }
+
+    if (count > env.MAX_EMAILS_PER_HOUR) {
+      console.log(`[Worker] Rate limit exceeded for sender ${senderId}. Rescheduling to next hour.`);
+      
+      // Calculate next available hour start time
+      const now = new Date();
+      const nextHour = new Date(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours() + 1, 0, 0, 0);
+      
+      // Offset by a few seconds based on the job index or randomness to prevent all bursting at exactly 00:00
+      nextHour.setSeconds(Math.floor(Math.random() * 30));
+
+      // Reschedule in PostgreSQL
+      await emailRepository.rescheduleJob(emailJobId, nextHour);
+
+      // Tell BullMQ to move this job to delayed state (requires BullMQ 4+)
+      await job.moveToDelayed(nextHour.getTime(), job.token!);
+      throw new DelayedError();
+    }
+
+    // 3. FETCH SENDER CREDENTIALS
+    let senderCredentials;
+    if (claimedJob.sender_id) {
+      const sender = await senderRepository.findById(claimedJob.sender_id);
+      if (sender) {
+        senderCredentials = {
+          email: sender.email,
+          user: sender.ethereal_user,
+          pass: sender.ethereal_password,
+        };
+      }
     }
 
     try {
-      // 3. Simulate processing without Ethereal for now
-      console.log(`[Worker] Simulating sending email to ${emailJob.recipient}...`);
-      await new Promise((resolve) => setTimeout(resolve, 2000)); // Simulate 2s network request
+      // 4. SEND EMAIL VIA SMTP
+      console.log(`[Worker] Sending email to ${claimedJob.recipient} via SMTP...`);
+      const result = await emailSender.sendEmail(
+        claimedJob.recipient,
+        claimedJob.subject,
+        claimedJob.body,
+        senderCredentials
+      );
 
-      // Random failure simulation could go here for testing, but let's assume success for now
-
-      // 4. Mark as SENT in PostgreSQL
+      // 5. SUCCESS: Mark as SENT in PostgreSQL
       await emailRepository.updateJobStatus(emailJobId, {
         status: 'SENT',
         sent_at: new Date(),
-        message_id: `simulated-${Date.now()}`,
+        message_id: result.messageId,
+        preview_url: result.previewUrl,
       });
 
-      console.log(`[Worker] Successfully sent email to ${emailJob.recipient}`);
+      console.log(`[Worker] Successfully sent email to ${claimedJob.recipient}. Preview: ${result.previewUrl}`);
     } catch (error: any) {
-      console.error(`[Worker] Failed to send email to ${emailJob.recipient}:`, error);
+      console.error(`[Worker] Failed to send email to ${claimedJob.recipient}:`, error.message);
       
-      // Mark as FAILED in PostgreSQL
-      await emailRepository.updateJobStatus(emailJobId, {
-        status: 'FAILED',
-        last_error: error.message,
-      });
+      // If we've exhausted our max attempts (configured in queue as 3)
+      if (job.attemptsMade >= 2) {
+        await emailRepository.updateJobStatus(emailJobId, {
+          status: 'FAILED',
+          last_error: error.message,
+        });
+        console.log(`[Worker] Exhausted retries for ${emailJobId}. Marked as FAILED.`);
+      } else {
+        // Just record the error and revert to SCHEDULED for the next retry
+        await emailRepository.updateJobStatus(emailJobId, {
+          status: 'SCHEDULED', // Revert so claimJobForProcessing works on next attempt
+          last_error: error.message,
+        });
+      }
 
-      throw error; // Let BullMQ handle retries
+      throw error; // Let BullMQ handle the backoff and retry mechanism
     }
   },
   {

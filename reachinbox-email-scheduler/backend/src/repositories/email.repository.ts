@@ -71,11 +71,36 @@ export class EmailRepository {
     return db('email_jobs').where({ id }).first();
   }
 
-  async updateJobStatus(id: string, updates: { status: string; sent_at?: Date; last_error?: string; message_id?: string; attempts?: number }) {
+  async updateJobStatus(id: string, updates: { status: string; sent_at?: Date; last_error?: string; message_id?: string; preview_url?: string; attempts?: number }) {
     const [updated] = await db('email_jobs')
       .where({ id })
       .update({
         ...updates,
+        updated_at: new Date(),
+      })
+      .returning('*');
+    return updated;
+  }
+
+  async claimJobForProcessing(id: string) {
+    const [claimed] = await db('email_jobs')
+      .where({ id })
+      .whereIn('status', ['SCHEDULED', 'PROCESSING'])
+      .update({
+        status: 'PROCESSING',
+        attempts: db.raw('attempts + 1'),
+        updated_at: new Date(),
+      })
+      .returning('*');
+    return claimed || null;
+  }
+
+  async rescheduleJob(id: string, newScheduledAt: Date) {
+    const [updated] = await db('email_jobs')
+      .where({ id })
+      .update({
+        scheduled_at: newScheduledAt,
+        status: 'SCHEDULED',
         updated_at: new Date(),
       })
       .returning('*');

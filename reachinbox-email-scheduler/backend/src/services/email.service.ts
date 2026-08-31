@@ -1,11 +1,13 @@
 import { emailRepository } from '../repositories/email.repository';
 import { userRepository } from '../repositories/user.repository';
+import { senderRepository } from '../repositories/sender.repository';
 import { CreateEmailBatchDto } from '../schemas/email.schema';
 import { emailQueue } from '../queues/email.queue';
+import { env } from '../config/env';
 
 export class EmailService {
   async ensureDummyUser(): Promise<string> {
-    // For Phase 2 (no auth), we just use a default user to satisfy foreign keys
+    // For Phase 4 (no auth), we use a default user and dummy sender to satisfy foreign keys
     let user = await userRepository.findById('00000000-0000-0000-0000-000000000000');
     if (!user) {
       user = await userRepository.create({
@@ -14,32 +16,44 @@ export class EmailService {
         email: 'test@example.com',
       });
     }
+
+    let senders = await senderRepository.findByUserId(user.id);
+    if (senders.length === 0) {
+      await senderRepository.create({
+        user_id: user.id,
+        email: env.SMTP_USER,
+        ethereal_user: env.SMTP_USER,
+        ethereal_password: env.SMTP_PASSWORD,
+      });
+    }
+
     return user.id;
   }
 
   async scheduleEmails(data: CreateEmailBatchDto) {
     const userId = await this.ensureDummyUser();
+    const senders = await senderRepository.findByUserId(userId);
     
     // Parse the initial start time
     const startTime = new Date(data.startTime);
     let currentScheduledTime = startTime.getTime();
 
-    // Prepare jobs
+    // We enforce MIN_EMAIL_DELAY_MS if delayBetweenMs is too small
+    const actualDelayMs = Math.max(data.delayBetweenMs, env.MIN_EMAIL_DELAY_MS);
+
+    // Prepare jobs (Round Robin sender assignment)
     const jobsData = data.recipients.map((recipient, index) => {
-      // Logic for hourly limit can be complex.
-      // For now, simple delay calculation: 
-      // If we hit hourly limit, we would jump the scheduled time by an hour.
-      // E.g., if hourlyLimit is 100, at index 100 we add an hour.
-      
-      if (index > 0 && index % data.hourlyLimit === 0) {
-        // We hit the hourly limit, push the next batch by 1 hour (3600000 ms)
-        currentScheduledTime += 60 * 60 * 1000;
-      } else if (index > 0) {
-        currentScheduledTime += data.delayBetweenMs;
+      // API strictly handles logical scheduling based on requested start and delay.
+      // Hourly limits are now handled dynamically by the Worker!
+      if (index > 0) {
+        currentScheduledTime += actualDelayMs;
       }
+
+      const assignedSender = senders[index % senders.length];
 
       return {
         user_id: userId,
+        sender_id: assignedSender?.id || null,
         recipient,
         subject: data.subject,
         body: data.body,
@@ -49,13 +63,14 @@ export class EmailService {
     });
 
     // Save batch and jobs to PostgreSQL FIRST
+    // Using knex batch insert under the hood ensures we can handle 1000+ jobs efficiently.
     const result = await emailRepository.createBatchWithJobs(
       {
         user_id: userId,
         subject: data.subject,
         body: data.body,
         start_time: startTime,
-        delay_between_ms: data.delayBetweenMs,
+        delay_between_ms: actualDelayMs,
         hourly_limit: data.hourlyLimit,
       },
       jobsData
