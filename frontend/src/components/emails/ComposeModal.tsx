@@ -39,7 +39,28 @@ export function ComposeModal({ isOpen, onClose, onSuccess }: ComposeModalProps) 
 
   const handleAttachmentChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
-      setAttachments([...attachments, ...Array.from(e.target.files)]);
+      const newFiles = Array.from(e.target.files);
+      const validFiles: File[] = [];
+      let hasOversized = false;
+
+      newFiles.forEach(file => {
+        if (file.size > 300 * 1024) {
+          hasOversized = true;
+        } else {
+          validFiles.push(file);
+        }
+      });
+
+      if (hasOversized) {
+        toast.error('Only attachments up to 300KB are allowed');
+      }
+
+      if (validFiles.length > 0) {
+        setAttachments([...attachments, ...validFiles]);
+      }
+    }
+    if (attachmentInputRef.current) {
+      attachmentInputRef.current.value = '';
     }
   };
 
