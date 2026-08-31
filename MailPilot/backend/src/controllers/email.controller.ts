@@ -38,8 +38,9 @@ export class EmailController {
       if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
       const page = parseInt(req.query.page as string) || 1;
       const limit = parseInt(req.query.limit as string) || 20;
+      const isFavourited = req.query.favourite === 'true';
 
-      const result = await emailService.getScheduledEmails(req.user.id, page, limit);
+      const result = await emailService.getScheduledEmails(req.user.id, page, limit, isFavourited);
       res.json(result);
     } catch (error) {
       next(error);
@@ -51,8 +52,9 @@ export class EmailController {
       if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
       const page = parseInt(req.query.page as string) || 1;
       const limit = parseInt(req.query.limit as string) || 20;
+      const isFavourited = req.query.favourite === 'true';
 
-      const result = await emailService.getSentEmails(req.user.id, page, limit);
+      const result = await emailService.getSentEmails(req.user.id, page, limit, isFavourited);
       res.json(result);
     } catch (error) {
       next(error);

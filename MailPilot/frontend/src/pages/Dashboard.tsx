@@ -23,6 +23,7 @@ export function Dashboard() {
   // Filter state
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest');
+  const [showFavourites, setShowFavourites] = useState(false);
 
   // Stats state
   const [stats, setStats] = useState({ scheduled: 0, sent: 0 });
@@ -42,7 +43,8 @@ export function Dashboard() {
     setIsLoadingEmails(true);
     try {
       const endpoint = activeTab === 'SCHEDULED' ? '/api/emails/scheduled' : '/api/emails/sent';
-      const response = await api.get<PaginatedResponse<EmailJob>>(endpoint);
+      const query = showFavourites ? '?favourite=true' : '';
+      const response = await api.get<PaginatedResponse<EmailJob>>(`${endpoint}${query}`);
       setEmails(response.data.data);
       
       // Fetch stats
@@ -82,7 +84,7 @@ export function Dashboard() {
     if (!isSearching) {
       fetchEmails();
     }
-  }, [fetchEmails, isSearching]);
+  }, [fetchEmails, isSearching, showFavourites]);
 
   // Debounced search effect
   useEffect(() => {
@@ -238,7 +240,7 @@ export function Dashboard() {
             {isFilterOpen && (
               <div className="absolute top-12 right-10 w-48 bg-white border border-[#eaeaea] rounded-xl shadow-lg p-3 z-50">
                 <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Sort By Date</h3>
-                <div className="flex flex-col gap-1">
+                <div className="flex flex-col gap-1 mb-3">
                   <button 
                     onClick={() => { setSortOrder('newest'); setIsFilterOpen(false); }}
                     className={`text-left px-3 py-2 text-sm rounded-md transition-colors ${sortOrder === 'newest' ? 'bg-[#eef8f2] text-[#00A14B] font-medium' : 'text-gray-600 hover:bg-gray-50'}`}
@@ -251,6 +253,19 @@ export function Dashboard() {
                   >
                     Oldest First
                   </button>
+                </div>
+                
+                <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 pt-2 border-t border-[#eaeaea]">Filter</h3>
+                <div className="flex flex-col gap-1">
+                  <label className="flex items-center px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 rounded-md cursor-pointer">
+                    <input 
+                      type="checkbox" 
+                      className="mr-2 accent-[#00A14B]"
+                      checked={showFavourites}
+                      onChange={(e) => setShowFavourites(e.target.checked)}
+                    />
+                    Starred Only
+                  </label>
                 </div>
               </div>
             )}

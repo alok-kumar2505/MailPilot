@@ -1,5 +1,6 @@
 import { Worker, Job, DelayedError } from 'bullmq';
 import { redis } from '../config/redis';
+import { db } from '../config/database';
 import { env } from '../config/env';
 import { emailRepository } from '../repositories/email.repository';
 import { senderRepository } from '../repositories/sender.repository';
@@ -31,7 +32,11 @@ const emailWorker = new Worker(
       await redis.expire(rateKey, 3600); // Expire after 1 hour
     }
 
-    if (count > env.MAX_EMAILS_PER_HOUR) {
+    // Fetch batch to get user's requested hourly limit
+    const batch = await db('email_batches').where({ id: claimedJob.batch_id }).first();
+    const limit = batch?.hourly_limit || env.MAX_EMAILS_PER_HOUR;
+
+    if (count > limit) {
       console.log(`[Worker] Rate limit exceeded for sender ${senderId}. Rescheduling to next hour.`);
       
       // Calculate next available hour start time

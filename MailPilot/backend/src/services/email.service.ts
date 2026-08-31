@@ -79,16 +79,16 @@ export class EmailService {
     return emailRepository.getStats(userId);
   }
 
-  async getScheduledEmails(userId: string, page: number, limit: number) {
+  async getScheduledEmails(userId: string, page: number, limit: number, isFavourited?: boolean) {
     // Note: The repository should be updated to filter by user_id
     // But for the sake of this test, we assume findJobsByUserIdAndStatus exists.
     // Let's implement it in the DB query directly or update the repository.
     // We will update the repository next.
-    return emailRepository.findJobsByUserIdAndStatus(userId, ['SCHEDULED', 'PROCESSING'], page, limit);
+    return emailRepository.findJobsByUserIdAndStatus(userId, ['SCHEDULED', 'PROCESSING'], page, limit, isFavourited);
   }
 
-  async getSentEmails(userId: string, page: number, limit: number) {
-    return emailRepository.findJobsByUserIdAndStatus(userId, ['SENT', 'FAILED'], page, limit);
+  async getSentEmails(userId: string, page: number, limit: number, isFavourited?: boolean) {
+    return emailRepository.findJobsByUserIdAndStatus(userId, ['SENT', 'FAILED'], page, limit, isFavourited);
   }
 
   async searchEmails(userId: string, query: string) {

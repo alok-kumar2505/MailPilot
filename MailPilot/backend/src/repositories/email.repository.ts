@@ -47,12 +47,16 @@ export class EmailRepository {
     };
   }
 
-  async findJobsByUserIdAndStatus(userId: string, statuses: string[], page: number, limit: number) {
+  async findJobsByUserIdAndStatus(userId: string, statuses: string[], page: number, limit: number, isFavourited?: boolean) {
     const offset = (page - 1) * limit;
 
-    const query = db('email_jobs')
+    let query = db('email_jobs')
       .where({ user_id: userId })
       .whereIn('status', statuses);
+
+    if (isFavourited) {
+      query = query.where({ is_favourited: true });
+    }
 
     const [countResult, jobs] = await Promise.all([
       query.clone().count('id as total').first(),

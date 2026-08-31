@@ -41,16 +41,56 @@ export function ComposeModal({ isOpen, onClose, onSuccess }: ComposeModalProps) 
   const [showSendLater, setShowSendLater] = useState(false);
   const [selectedTime, setSelectedTime] = useState<Date | null>(null);
 
+  const processEmails = (input: string, currentRecipients: string[]) => {
+    const tokens = input.split(/[\s,]+/).filter(Boolean);
+    const newRecipients = [...currentRecipients];
+    let hasInvalid = false;
+    let addedCount = 0;
+    
+    for (const token of tokens) {
+      if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(token)) {
+        if (!newRecipients.includes(token)) {
+          newRecipients.push(token);
+          addedCount++;
+        }
+      } else {
+        hasInvalid = true;
+      }
+    }
+    return { newRecipients, hasInvalid, addedCount };
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (['Enter', ',', ' '].includes(e.key)) {
       e.preventDefault();
       const val = singleRecipient.trim();
-      if (val && !recipients.includes(val) && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)) {
-        setRecipients([...recipients, val]);
+      const { newRecipients, hasInvalid, addedCount } = processEmails(val, recipients);
+      
+      if (addedCount > 0) {
+        setRecipients(newRecipients);
         setSingleRecipient('');
+      } else if (hasInvalid) {
+        toast.error('Invalid email address');
       } else if (val) {
-        toast.error('Invalid or duplicate email address');
+        // Was a duplicate
+        setSingleRecipient('');
       }
+    }
+  };
+
+  const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    e.preventDefault();
+    const pastedText = e.clipboardData.getData('text');
+    const { newRecipients, hasInvalid, addedCount } = processEmails(pastedText, recipients);
+    
+    if (addedCount > 0) {
+      setRecipients(newRecipients);
+    }
+    
+    if (hasInvalid && addedCount === 0) {
+       toast.error('No valid emails found in pasted text');
+    } else if (hasInvalid) {
+       toast.error(`Added ${addedCount} emails, some were invalid`);
     }
   };
 
@@ -235,6 +275,7 @@ export function ComposeModal({ isOpen, onClose, onSuccess }: ComposeModalProps) 
                 value={singleRecipient}
                 onChange={(e) => setSingleRecipient(e.target.value)}
                 onKeyDown={handleKeyDown}
+                onPaste={handlePaste}
               />
             </div>
             
