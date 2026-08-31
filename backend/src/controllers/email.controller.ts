@@ -64,7 +64,7 @@ export class EmailController {
   async getEmailById(req: Request, res: Response, next: NextFunction) {
     try {
       if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
-      const { id } = req.params;
+      const id = req.params.id as string;
       const job = await emailService.getEmailJobById(req.user.id, id);
 
       if (!job) {
@@ -94,7 +94,7 @@ export class EmailController {
   async toggleFavourite(req: Request, res: Response, next: NextFunction) {
     try {
       if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
-      const { id } = req.params;
+      const id = req.params.id as string;
       const { is_favourited } = req.body;
       const updated = await emailService.toggleFavourite(req.user.id, id, is_favourited);
       res.json(updated);
@@ -106,7 +106,7 @@ export class EmailController {
   async reschedule(req: Request, res: Response, next: NextFunction) {
     try {
       if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
-      const { id } = req.params;
+      const id = req.params.id as string;
       const { scheduled_at } = req.body;
       const updated = await emailService.rescheduleEmail(req.user.id, id, scheduled_at);
       res.json(updated);
