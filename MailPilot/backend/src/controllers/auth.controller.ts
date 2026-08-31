@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { env } from '../config/env';
 import axios from 'axios';
 import jwt from 'jsonwebtoken';
+import bcrypt from 'bcryptjs';
 import { userRepository } from '../repositories/user.repository';
 import { senderRepository } from '../repositories/sender.repository';
 
@@ -80,6 +81,79 @@ export class AuthController {
       });
 
       res.redirect(`${env.FRONTEND_URL}/dashboard`);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async register(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { name, email, password } = req.body;
+      if (!name || !email || !password) {
+        return res.status(400).json({ error: 'Name, email, and password are required' });
+      }
+
+      let user = await userRepository.findByEmail(email);
+      if (user) {
+        return res.status(400).json({ error: 'User already exists' });
+      }
+
+      const passwordHash = await bcrypt.hash(password, 10);
+      user = await userRepository.create({
+        id: crypto.randomUUID(),
+        name,
+        email,
+        password_hash: passwordHash,
+      });
+
+      // Automatically assign a dummy Ethereal sender for testing purposes
+      await senderRepository.create({
+        user_id: user.id,
+        email: env.SMTP_USER,
+        ethereal_user: env.SMTP_USER,
+        ethereal_password: env.SMTP_PASSWORD,
+      });
+
+      const token = jwt.sign({ id: user.id, email: user.email }, env.JWT_SECRET, { expiresIn: '7d' });
+      res.cookie('token', token, {
+        httpOnly: true,
+        secure: env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 7 * 24 * 60 * 60 * 1000,
+      });
+
+      res.status(201).json({ message: 'Registered successfully', user: { id: user.id, name: user.name, email: user.email } });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async login(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { email, password } = req.body;
+      if (!email || !password) {
+        return res.status(400).json({ error: 'Email and password are required' });
+      }
+
+      const user = await userRepository.findByEmail(email);
+      if (!user || !user.password_hash) {
+        return res.status(401).json({ error: 'Invalid email or password' });
+      }
+
+      const isMatch = await bcrypt.compare(password, user.password_hash);
+      if (!isMatch) {
+        return res.status(401).json({ error: 'Invalid email or password' });
+      }
+
+      const token = jwt.sign({ id: user.id, email: user.email }, env.JWT_SECRET, { expiresIn: '7d' });
+      res.cookie('token', token, {
+        httpOnly: true,
+        secure: env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 7 * 24 * 60 * 60 * 1000,
+      });
+
+      res.json({ message: 'Logged in successfully', user: { id: user.id, name: user.name, email: user.email } });
     } catch (error) {
       next(error);
     }

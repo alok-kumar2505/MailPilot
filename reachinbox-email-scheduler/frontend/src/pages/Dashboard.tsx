@@ -1,8 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Button } from '../components/common/Button';
 import { api } from '../services/api';
-import { LogOut, Plus, Hash, Search, RefreshCw } from 'lucide-react';
+import { LogOut, Search, RefreshCw, Clock, Send, Filter, ChevronDown } from 'lucide-react';
 import type { SlackStatus, EmailJob, PaginatedResponse, SearchResponse } from '../types';
 import toast from 'react-hot-toast';
 import { ComposeModal } from '../components/emails/ComposeModal';
@@ -83,20 +82,6 @@ export function Dashboard() {
     return () => clearTimeout(timeoutId);
   }, [searchQuery, handleSearch]);
 
-  const handleSlackConnect = () => {
-    window.location.href = `${api.defaults.baseURL}/api/slack/connect`;
-  };
-
-  const handleSlackDisconnect = async () => {
-    try {
-      await api.delete('/api/slack/disconnect');
-      setSlackStatus({ connected: false });
-      toast.success('Slack disconnected successfully');
-    } catch (error) {
-      toast.error('Failed to disconnect Slack');
-    }
-  };
-
   const handleComposeSuccess = () => {
     setActiveTab('SCHEDULED');
     setSearchQuery('');
@@ -105,114 +90,107 @@ export function Dashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-[var(--color-bg-dark)]">
-      {/* Header */}
-      <header className="sticky top-0 z-40 bg-[var(--color-surface)]/80 backdrop-blur-md border-b border-[var(--color-border)]">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="h-8 w-8 bg-[var(--color-primary)]/20 rounded-lg flex items-center justify-center border border-[var(--color-primary)]/30">
-              <span className="text-[var(--color-primary)] font-bold">R</span>
-            </div>
-            <h1 className="text-xl font-bold text-white tracking-tight">ReachInbox</h1>
-          </div>
+    <div className="min-h-screen bg-white flex text-[#222]">
+      {/* Sidebar */}
+      <aside className="w-64 flex-shrink-0 flex flex-col pt-6 px-4">
+        {/* Logo */}
+        <div className="mb-8 pl-2">
+          <h1 className="text-3xl font-extrabold tracking-tighter uppercase font-mono">
+            ONB
+          </h1>
+        </div>
 
-          <div className="flex items-center gap-6">
-            <div className="flex items-center gap-3">
-              {user?.avatarUrl ? (
-                <img src={user.avatarUrl} alt={user.name} className="h-8 w-8 rounded-full ring-2 ring-[var(--color-border)]" />
-              ) : (
-                <div className="h-8 w-8 rounded-full bg-[var(--color-border)] flex items-center justify-center text-white font-medium">
-                  {user?.name.charAt(0)}
-                </div>
-              )}
-              <div className="flex flex-col hidden sm:flex">
-                <span className="text-sm font-medium text-white">{user?.name}</span>
-                <span className="text-xs text-[var(--color-text-muted)]">{user?.email}</span>
+        {/* User Profile */}
+        <div className="bg-[#f7f8f9] rounded-xl p-3 flex items-center justify-between mb-6 border border-[#eee]">
+          <div className="flex items-center gap-3 overflow-hidden">
+            {user?.avatarUrl ? (
+              <img src={user.avatarUrl} alt={user.name} className="h-10 w-10 rounded-full object-cover" />
+            ) : (
+              <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center font-medium text-gray-500 flex-shrink-0">
+                {user?.name.charAt(0)}
               </div>
-            </div>
-            <Button variant="ghost" size="sm" onClick={logout} className="text-[var(--color-error)] hover:text-[var(--color-error)] hover:bg-[var(--color-error)]/10">
-              <LogOut className="h-4 w-4 mr-2 hidden sm:inline-block" />
-              Logout
-            </Button>
-          </div>
-        </div>
-      </header>
-
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Actions Bar */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
-          <div className="flex rounded-lg bg-[var(--color-surface)] p-1 border border-[var(--color-border)]">
-            <button
-              onClick={() => {
-                setActiveTab('SCHEDULED');
-                setSearchQuery('');
-              }}
-              className={`px-6 py-2 rounded-md text-sm font-medium transition-all ${
-                activeTab === 'SCHEDULED' && !isSearching
-                  ? 'bg-[var(--color-primary)] text-white shadow-md' 
-                  : 'text-[var(--color-text-muted)] hover:text-white'
-              }`}
-            >
-              Scheduled Emails
-            </button>
-            <button
-              onClick={() => {
-                setActiveTab('SENT');
-                setSearchQuery('');
-              }}
-              className={`px-6 py-2 rounded-md text-sm font-medium transition-all ${
-                activeTab === 'SENT' && !isSearching
-                  ? 'bg-[var(--color-primary)] text-white shadow-md' 
-                  : 'text-[var(--color-text-muted)] hover:text-white'
-              }`}
-            >
-              Sent Emails
-            </button>
-          </div>
-
-          <div className="flex items-center gap-3 w-full sm:w-auto">
-            {!isCheckingSlack && (
-              slackStatus.connected ? (
-                <Button variant="secondary" onClick={handleSlackDisconnect} className="gap-2 text-[var(--color-text-muted)]">
-                  <Hash className="h-4 w-4 text-[var(--color-success)]" />
-                  <span className="hidden sm:inline">Slack Connected</span>
-                </Button>
-              ) : (
-                <Button variant="secondary" onClick={handleSlackConnect} className="gap-2">
-                  <Hash className="h-4 w-4" />
-                  Connect Slack
-                </Button>
-              )
             )}
-            <Button onClick={() => setIsComposeOpen(true)} className="gap-2 w-full sm:w-auto shadow-lg shadow-[var(--color-primary)]/20">
-              <Plus className="h-4 w-4" />
-              Compose Email
-            </Button>
+            <div className="flex flex-col truncate">
+              <span className="text-sm font-semibold truncate">{user?.name}</span>
+              <span className="text-xs text-gray-500 truncate">{user?.email}</span>
+            </div>
           </div>
-        </div>
-
-        {/* Global Search */}
-        <div className="relative mb-8">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-[var(--color-text-muted)]" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search across all emails (Elasticsearch powered)..."
-            className="w-full h-12 pl-10 pr-12 rounded-xl bg-[var(--color-surface)] border border-[var(--color-border)] text-white placeholder-[var(--color-text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] transition-all shadow-sm"
-          />
-          <button 
-            onClick={() => fetchEmails()}
-            className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-md text-[var(--color-text-muted)] hover:text-white hover:bg-[var(--color-border)] transition-colors"
-            title="Refresh Table"
-          >
-            <RefreshCw className={`h-4 w-4 ${isLoadingEmails ? 'animate-spin text-[var(--color-primary)]' : ''}`} />
+          <button onClick={logout} className="text-gray-400 hover:text-gray-600 transition-colors" title="Logout">
+            <ChevronDown className="h-4 w-4" />
           </button>
         </div>
 
-        {/* Email Table */}
-        <div className="bg-[var(--color-surface)] rounded-xl border border-[var(--color-border)] shadow-sm min-h-[400px]">
+        {/* Compose Button */}
+        <button 
+          onClick={() => setIsComposeOpen(true)}
+          className="w-full bg-white border border-[#00A14B] text-[#00A14B] hover:bg-[#f3fbf6] font-medium rounded-full py-2.5 transition-colors mb-8"
+        >
+          Compose
+        </button>
+
+        {/* Navigation */}
+        <div className="flex flex-col gap-1">
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 pl-2">Core</p>
+          
+          <button
+            onClick={() => { setActiveTab('SCHEDULED'); setSearchQuery(''); }}
+            className={`flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+              activeTab === 'SCHEDULED' && !isSearching
+                ? 'bg-[#eef8f2] text-[#00A14B]'
+                : 'text-gray-700 hover:bg-gray-50'
+            }`}
+          >
+            <div className="flex items-center gap-3">
+              <Clock className="h-4 w-4" />
+              <span>Scheduled</span>
+            </div>
+            {/* Mocked counts based on screenshots */}
+            <span className="text-xs opacity-70">12</span>
+          </button>
+
+          <button
+            onClick={() => { setActiveTab('SENT'); setSearchQuery(''); }}
+            className={`flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+              activeTab === 'SENT' && !isSearching
+                ? 'bg-[#eef8f2] text-[#00A14B]'
+                : 'text-gray-700 hover:bg-gray-50'
+            }`}
+          >
+            <div className="flex items-center gap-3">
+              <Send className="h-4 w-4" />
+              <span>Sent</span>
+            </div>
+            <span className="text-xs opacity-70">785</span>
+          </button>
+        </div>
+      </aside>
+
+      {/* Main Content */}
+      <main className="flex-1 flex flex-col border-l border-[#eaeaea]">
+        {/* Top bar */}
+        <header className="h-16 flex items-center px-6 gap-4 border-b border-[#eaeaea] bg-white">
+          <div className="flex-1 max-w-2xl relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search"
+              className="w-full bg-[#f4f5f7] border-none rounded-full py-2 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-[#00A14B]/30 transition-shadow"
+            />
+          </div>
+          <div className="flex items-center gap-3 text-gray-400">
+            <button className="p-2 hover:bg-gray-100 rounded-full transition-colors">
+              <Filter className="h-4 w-4" />
+            </button>
+            <button onClick={() => fetchEmails()} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
+              <RefreshCw className={`h-4 w-4 ${isLoadingEmails ? 'animate-spin text-[#00A14B]' : ''}`} />
+            </button>
+          </div>
+        </header>
+
+        {/* List Content */}
+        <div className="flex-1 overflow-auto bg-white">
           <EmailTable 
             emails={emails} 
             isLoading={isLoadingEmails} 

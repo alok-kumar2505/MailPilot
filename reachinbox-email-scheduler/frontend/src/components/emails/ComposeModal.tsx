@@ -1,11 +1,10 @@
 import { useState, useRef } from 'react';
 import Papa from 'papaparse';
-import { Upload, FileType, CheckCircle2, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Paperclip, Clock, Bold, Italic, Underline, List, ListOrdered, Link, CheckCircle2 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { Modal } from '../common/Modal';
-import { Input } from '../common/Input';
-import { Button } from '../common/Button';
 import { api } from '../../services/api';
+import { useAuth } from '../../context/AuthContext';
+import { format, addDays, addHours, startOfHour } from 'date-fns';
 
 interface ComposeModalProps {
   isOpen: boolean;
@@ -14,16 +13,21 @@ interface ComposeModalProps {
 }
 
 export function ComposeModal({ isOpen, onClose, onSuccess }: ComposeModalProps) {
+  const { user } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
-  const [startTime, setStartTime] = useState('');
   const [delayMs, setDelayMs] = useState(1000);
   const [hourlyLimit, setHourlyLimit] = useState(500);
 
   const [recipients, setRecipients] = useState<string[]>([]);
-  const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Send Later panel state
+  const [showSendLater, setShowSendLater] = useState(false);
+  const [selectedTime, setSelectedTime] = useState<Date | null>(null);
+
+  if (!isOpen) return null;
 
   const parseFile = (file: File) => {
     Papa.parse(file, {
@@ -32,13 +36,11 @@ export function ComposeModal({ isOpen, onClose, onSuccess }: ComposeModalProps) 
         let invalidCount = 0;
 
         results.data.forEach((row: any) => {
-          // Assume the first column or any cell might contain the email
           const cells = Array.isArray(row) ? row : Object.values(row);
           cells.forEach(cell => {
             if (typeof cell === 'string') {
               const cleaned = cell.trim();
               if (cleaned.includes('@')) {
-                // Extremely basic regex for rapid validation, backend handles strict rules
                 if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleaned)) {
                   emails.add(cleaned);
                 } else {
@@ -62,18 +64,8 @@ export function ComposeModal({ isOpen, onClose, onSuccess }: ComposeModalProps) 
           toast.error(`${invalidCount} invalid emails were skipped`);
         }
       },
-      error: () => {
-        toast.error('Failed to parse CSV file');
-      }
+      error: () => toast.error('Failed to parse CSV file')
     });
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      parseFile(e.dataTransfer.files[0]);
-    }
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -82,13 +74,16 @@ export function ComposeModal({ isOpen, onClose, onSuccess }: ComposeModalProps) 
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!subject || !body || !startTime) {
-      return toast.error('Please fill in all required fields');
+  const handleSubmit = async () => {
+    if (!subject || !body) {
+      return toast.error('Please provide a subject and body');
     }
     if (recipients.length === 0) {
-      return toast.error('Please upload a CSV with at least one recipient');
+      return toast.error('Please provide at least one recipient via CSV');
+    }
+    if (!selectedTime) {
+      setShowSendLater(true);
+      return toast.error('Please select a Send Later time');
     }
 
     try {
@@ -96,7 +91,7 @@ export function ComposeModal({ isOpen, onClose, onSuccess }: ComposeModalProps) 
       await api.post('/api/emails', {
         subject,
         body,
-        startTime: new Date(startTime).toISOString(),
+        startTime: selectedTime.toISOString(),
         delayBetweenMs: delayMs,
         hourlyLimit,
         recipients,
@@ -111,85 +106,164 @@ export function ComposeModal({ isOpen, onClose, onSuccess }: ComposeModalProps) 
     }
   };
 
+  // Mock times for Send Later
+  const tomorrow = startOfHour(addDays(new Date(), 1));
+  const timeOptions = [
+    { label: 'Tomorrow', date: tomorrow },
+    { label: 'Tomorrow, 10:00 AM', date: addHours(tomorrow, 10) },
+    { label: 'Tomorrow, 11:00 AM', date: addHours(tomorrow, 11) },
+    { label: 'Tomorrow, 3:00 PM', date: addHours(tomorrow, 15) },
+  ];
+
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Compose Email Sequence">
-      <form onSubmit={handleSubmit} className="space-y-5">
-        <div 
-          className={`border-2 border-dashed rounded-xl p-6 text-center transition-colors ${
-            isDragging ? 'border-[var(--color-primary)] bg-[var(--color-primary)]/5' : 'border-[var(--color-border)] hover:border-[var(--color-text-muted)]'
-          }`}
-          onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
-          onDragLeave={() => setIsDragging(false)}
-          onDrop={handleDrop}
-          onClick={() => fileInputRef.current?.click()}
-        >
-          <input type="file" accept=".csv,.txt" className="hidden" ref={fileInputRef} onChange={handleFileChange} />
-          {recipients.length > 0 ? (
-            <div className="flex flex-col items-center text-[var(--color-success)]">
-              <CheckCircle2 className="h-10 w-10 mb-2" />
-              <p className="font-medium">{recipients.length} recipients loaded</p>
-              <p className="text-sm text-[var(--color-text-muted)] mt-1">Click or drag to replace file</p>
-            </div>
-          ) : (
-            <div className="flex flex-col items-center text-[var(--color-text-muted)] cursor-pointer">
-              <Upload className="h-10 w-10 mb-2" />
-              <p className="font-medium">Drag & drop CSV or TXT file here</p>
-              <p className="text-sm mt-1">or click to browse</p>
-            </div>
-          )}
+    <div className="fixed inset-0 z-50 flex flex-col bg-white overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+      
+      {/* Top Navigation */}
+      <header className="h-16 border-b border-[#eaeaea] flex items-center justify-between px-6 bg-white relative">
+        <button onClick={onClose} className="flex items-center text-[#333] hover:text-black font-semibold text-lg transition-colors">
+          <ArrowLeft className="h-5 w-5 mr-3" />
+          Compose New Email
+        </button>
+
+        <div className="flex items-center gap-4">
+          <button className="text-gray-400 hover:text-gray-600 transition-colors">
+            <Paperclip className="h-5 w-5" />
+          </button>
+          <button 
+            onClick={() => setShowSendLater(!showSendLater)}
+            className={`text-gray-400 hover:text-[#00A14B] transition-colors ${showSendLater ? 'text-[#00A14B]' : ''}`}
+          >
+            <Clock className="h-5 w-5" />
+          </button>
+          <button 
+            onClick={handleSubmit}
+            disabled={isSubmitting}
+            className="border border-[#00A14B] text-[#00A14B] hover:bg-[#f3fbf6] px-6 py-1.5 rounded-full font-medium transition-colors"
+          >
+            {isSubmitting ? 'Sending...' : 'Send'}
+          </button>
         </div>
 
-        <Input 
-          label="Subject" 
-          placeholder="Enter email subject..." 
-          value={subject}
-          onChange={(e) => setSubject(e.target.value)}
-          required
-        />
+        {/* Send Later Panel Popup */}
+        {showSendLater && (
+          <div className="absolute top-16 right-6 w-[280px] bg-white border border-[#eaeaea] rounded-xl shadow-[0_10px_40px_rgba(0,0,0,0.08)] p-1 z-50">
+            <div className="p-3 border-b border-[#eaeaea]">
+              <h3 className="font-semibold text-sm text-[#333]">Send Later</h3>
+              <p className="text-xs text-gray-500 mt-1">
+                {selectedTime ? format(selectedTime, 'PPpp') : 'Pick date & time'}
+              </p>
+            </div>
+            <div className="py-2">
+              {timeOptions.map((opt, i) => (
+                <button
+                  key={i}
+                  onClick={() => setSelectedTime(opt.date)}
+                  className={`w-full text-left px-4 py-2.5 text-sm hover:bg-gray-50 transition-colors ${
+                    selectedTime?.getTime() === opt.date.getTime() ? 'bg-[#eef8f2] text-[#00A14B] font-medium' : 'text-gray-600'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+            <div className="p-3 border-t border-[#eaeaea] flex justify-end gap-2">
+              <button onClick={() => setShowSendLater(false)} className="text-sm font-medium text-gray-500 hover:text-gray-800 px-3 py-1.5 rounded-md">Cancel</button>
+              <button onClick={() => setShowSendLater(false)} className="text-sm font-medium border border-[#00A14B] text-[#00A14B] px-4 py-1.5 rounded-full hover:bg-[#eef8f2]">Done</button>
+            </div>
+          </div>
+        )}
+      </header>
+
+      {/* Compose Form */}
+      <div className="flex-1 overflow-y-auto px-6 py-8 max-w-5xl mx-auto w-full">
         
-        <div className="flex flex-col space-y-1.5 w-full">
-          <label className="text-sm font-medium text-[var(--color-text-muted)]">Body (HTML supported)</label>
+        {/* Fields */}
+        <div className="flex flex-col gap-0 border-b border-[#eaeaea] pb-6 mb-6">
+          <div className="flex items-center py-3 border-b border-[#eaeaea]/50">
+            <span className="w-20 text-sm font-semibold text-gray-500">From</span>
+            <div className="bg-gray-100 px-3 py-1 rounded-md text-sm font-medium text-gray-800 flex items-center">
+              {user?.email || 'user@example.com'}
+              <span className="ml-2 text-gray-400 text-xs">▼</span>
+            </div>
+          </div>
+          
+          <div className="flex items-center py-3 border-b border-[#eaeaea]/50">
+            <span className="w-20 text-sm font-semibold text-gray-500">To</span>
+            <div className="flex-1 flex items-center gap-4">
+              <input type="file" accept=".csv,.txt" className="hidden" ref={fileInputRef} onChange={handleFileChange} />
+              <button 
+                onClick={() => fileInputRef.current?.click()}
+                className="text-sm text-gray-400 hover:text-[#00A14B] flex items-center"
+              >
+                {recipients.length > 0 ? (
+                  <span className="text-[#00A14B] flex items-center gap-1 font-medium"><CheckCircle2 className="w-4 h-4"/> {recipients.length} recipients loaded via CSV</span>
+                ) : (
+                  'Click to upload CSV of recipients'
+                )}
+              </button>
+            </div>
+          </div>
+
+          <div className="flex items-center py-3 border-b border-[#eaeaea]/50">
+            <span className="w-20 text-sm font-semibold text-gray-500">Subject</span>
+            <input 
+              type="text" 
+              placeholder="Enter subject" 
+              value={subject}
+              onChange={(e) => setSubject(e.target.value)}
+              className="flex-1 text-sm font-medium text-gray-800 placeholder-gray-300 focus:outline-none"
+            />
+          </div>
+
+          <div className="flex items-center py-4 gap-8">
+            <div className="flex items-center gap-3">
+              <span className="text-sm font-semibold text-gray-500">Delay between 2 emails</span>
+              <input 
+                type="number" 
+                value={delayMs}
+                onChange={(e) => setDelayMs(Number(e.target.value))}
+                className="w-20 border border-gray-200 rounded-md px-3 py-1 text-sm text-center focus:outline-none focus:border-[#00A14B]"
+              />
+              <span className="text-xs text-gray-400">ms</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="text-sm font-semibold text-gray-500">Hourly Limit</span>
+              <input 
+                type="number" 
+                value={hourlyLimit}
+                onChange={(e) => setHourlyLimit(Number(e.target.value))}
+                className="w-20 border border-gray-200 rounded-md px-3 py-1 text-sm text-center focus:outline-none focus:border-[#00A14B]"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Rich Text Editor Mock */}
+        <div className="flex flex-col bg-[#fafafa] rounded-xl border border-[#eaeaea] overflow-hidden min-h-[400px]">
+          {/* Toolbar */}
+          <div className="flex items-center gap-2 border-b border-[#eaeaea] p-2 bg-white text-gray-400">
+            <button className="p-1.5 hover:bg-gray-100 rounded-md transition-colors"><ArrowLeft className="w-4 h-4 rotate-180" /></button>
+            <button className="p-1.5 hover:bg-gray-100 rounded-md transition-colors"><ArrowLeft className="w-4 h-4" /></button>
+            <div className="w-px h-5 bg-gray-200 mx-1"></div>
+            <button className="p-1.5 hover:bg-gray-100 rounded-md transition-colors font-serif font-bold text-sm">Tt</button>
+            <button className="p-1.5 hover:bg-gray-100 rounded-md transition-colors"><Bold className="w-4 h-4" /></button>
+            <button className="p-1.5 hover:bg-gray-100 rounded-md transition-colors"><Italic className="w-4 h-4" /></button>
+            <button className="p-1.5 hover:bg-gray-100 rounded-md transition-colors"><Underline className="w-4 h-4" /></button>
+            <div className="w-px h-5 bg-gray-200 mx-1"></div>
+            <button className="p-1.5 hover:bg-gray-100 rounded-md transition-colors"><List className="w-4 h-4" /></button>
+            <button className="p-1.5 hover:bg-gray-100 rounded-md transition-colors"><ListOrdered className="w-4 h-4" /></button>
+            <button className="p-1.5 hover:bg-gray-100 rounded-md transition-colors"><Link className="w-4 h-4" /></button>
+          </div>
+          
           <textarea 
-            className="flex min-h-[120px] w-full rounded-lg bg-[var(--color-surface)] px-3 py-2 text-sm text-white border border-[var(--color-border)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] resize-none"
-            placeholder="Type your email body here..."
+            className="flex-1 w-full bg-transparent p-6 text-sm text-gray-800 focus:outline-none resize-none placeholder-gray-300"
+            placeholder="Type Your Reply..."
             value={body}
             onChange={(e) => setBody(e.target.value)}
-            required
           />
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <Input 
-            label="Start Time" 
-            type="datetime-local" 
-            value={startTime}
-            onChange={(e) => setStartTime(e.target.value)}
-            required
-          />
-          <Input 
-            label="Delay (ms)" 
-            type="number" 
-            min="1000"
-            value={delayMs}
-            onChange={(e) => setDelayMs(Number(e.target.value))}
-            required
-          />
-        </div>
-
-        <Input 
-          label="Hourly Limit" 
-          type="number" 
-          min="1"
-          value={hourlyLimit}
-          onChange={(e) => setHourlyLimit(Number(e.target.value))}
-          required
-        />
-
-        <div className="flex justify-end gap-3 pt-4 border-t border-[var(--color-border)]">
-          <Button type="button" variant="ghost" onClick={onClose}>Cancel</Button>
-          <Button type="submit" isLoading={isSubmitting}>Schedule Sequence</Button>
-        </div>
-      </form>
-    </Modal>
+      </div>
+    </div>
   );
 }

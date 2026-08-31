@@ -1,13 +1,18 @@
-import { useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Button } from '../components/common/Button';
-import { Mail, ArrowRight } from 'lucide-react';
 import { api } from '../services/api';
+import toast from 'react-hot-toast';
 
 export function Login() {
-  const { user, isLoading } = useAuth();
+  const { user, isLoading, refetchUser } = useAuth();
   const navigate = useNavigate();
+  
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isRegistering, setIsRegistering] = useState(false);
+  const [name, setName] = useState(''); // Only used for registration
 
   useEffect(() => {
     if (user && !isLoading) {
@@ -16,10 +21,34 @@ export function Login() {
   }, [user, isLoading, navigate]);
 
   const handleGoogleLogin = () => {
-    // The backend redirect endpoint is /api/auth/google
-    // Since we are interacting directly with the browser navigation, 
-    // we use window.location.href
     window.location.href = `${api.defaults.baseURL}/api/auth/google`;
+  };
+
+  const handleEmailSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email || !password || (isRegistering && !name)) {
+      toast.error('Please fill in all fields');
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      if (isRegistering) {
+        await api.post('/api/auth/register', { name, email, password });
+        toast.success('Registration successful!');
+      } else {
+        await api.post('/api/auth/login', { email, password });
+        toast.success('Login successful!');
+      }
+      
+      // Refresh user context to redirect to dashboard
+      await refetchUser();
+      
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || 'Authentication failed');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   if (isLoading) {
@@ -31,51 +60,92 @@ export function Login() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center relative overflow-hidden bg-[var(--color-bg-dark)]">
-      {/* Background decoration */}
-      <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-[var(--color-primary)]/20 blur-[120px] rounded-full pointer-events-none" />
-      <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] bg-[var(--color-success)]/10 blur-[120px] rounded-full pointer-events-none" />
-
-      <div className="relative glass w-full max-w-md p-10 rounded-2xl flex flex-col items-center text-center space-y-8">
-        <div className="bg-[var(--color-primary)]/10 p-4 rounded-2xl ring-1 ring-[var(--color-primary)]/30">
-          <Mail className="h-12 w-12 text-[var(--color-primary)]" />
-        </div>
+    <div className="min-h-screen flex items-center justify-center bg-[var(--color-bg-dark)] px-4">
+      <div className="w-full max-w-[440px] bg-white rounded-xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 p-10 flex flex-col items-center">
         
-        <div className="space-y-2">
-          <h1 className="text-3xl font-bold tracking-tight text-white">
-            ReachInbox
-          </h1>
-          <p className="text-[var(--color-text-muted)]">
-            Intelligent email scheduling for your outreach campaigns.
-          </p>
+        <h1 className="text-[28px] font-bold text-gray-900 mb-8">
+          {isRegistering ? 'Sign Up' : 'Login'}
+        </h1>
+
+        <button 
+          onClick={handleGoogleLogin} 
+          type="button"
+          className="w-full flex items-center justify-center gap-3 bg-[#f3f9f5] text-[#333] border border-[#e2ece5] rounded-lg py-2.5 font-medium hover:bg-[#eaf4ec] transition-colors"
+        >
+          {/* Google G icon inline SVG */}
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M17.64 9.20455C17.64 8.56636 17.5827 7.95273 17.4764 7.36364H9V10.845H13.8436C13.635 11.97 13.0009 12.9232 12.0477 13.5614V15.8195H14.9564C16.6582 14.2527 17.64 11.9455 17.64 9.20455Z" fill="#4285F4"/>
+            <path d="M9 18C11.43 18 13.4673 17.1941 14.9564 15.8195L12.0477 13.5614C11.2418 14.1014 10.2109 14.4205 9 14.4205C6.65591 14.4205 4.67182 12.8373 3.96409 10.71H0.957275V13.0418C2.43818 15.9832 5.48182 18 9 18Z" fill="#34A853"/>
+            <path d="M3.96409 10.71C3.78409 10.17 3.68182 9.59318 3.68182 9C3.68182 8.40682 3.78409 7.83 3.96409 7.29V4.95818H0.957275C0.347727 6.17318 0 7.54773 0 9C0 10.4523 0.347727 11.8268 0.957275 13.0418L3.96409 10.71Z" fill="#FBBC05"/>
+            <path d="M9 3.57955C10.3214 3.57955 11.5077 4.03364 12.4405 4.92545L15.0218 2.34409C13.4632 0.891818 11.4259 0 9 0C5.48182 0 2.43818 2.01682 0.957275 4.95818L3.96409 7.29C4.67182 5.16273 6.65591 3.57955 9 3.57955Z" fill="#EA4335"/>
+          </svg>
+          {isRegistering ? 'Sign up with Google' : 'Login with Google'}
+        </button>
+
+        <div className="flex items-center w-full my-6 text-gray-400">
+          <div className="flex-1 border-t border-gray-200"></div>
+          <span className="px-4 text-xs font-medium tracking-wide">
+            {isRegistering ? 'or sign up through email' : 'or login through email'}
+          </span>
+          <div className="flex-1 border-t border-gray-200"></div>
         </div>
 
-        <Button 
-          onClick={handleGoogleLogin} 
-          className="w-full group"
-          size="lg"
-        >
-          <svg className="w-5 h-5 mr-3" viewBox="0 0 24 24">
-            <path
-              fill="currentColor"
-              d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+        <form className="w-full flex flex-col gap-4" onSubmit={handleEmailSubmit}>
+          {isRegistering && (
+            <input
+              type="text"
+              placeholder="Full Name"
+              className="w-full bg-[#f8f9fa] border border-gray-200 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-gray-300 transition-shadow text-gray-800 placeholder-gray-400"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required={isRegistering}
             />
-            <path
-              fill="currentColor"
-              d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-            />
-            <path
-              fill="currentColor"
-              d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-            />
-            <path
-              fill="currentColor"
-              d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-            />
-          </svg>
-          Continue with Google
-          <ArrowRight className="w-4 h-4 ml-auto opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all" />
-        </Button>
+          )}
+
+          <input
+            type="email"
+            placeholder="Email ID"
+            className="w-full bg-[#f8f9fa] border border-gray-200 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-gray-300 transition-shadow text-gray-800 placeholder-gray-400"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+          />
+
+          <input
+            type="password"
+            placeholder="Password"
+            className="w-full bg-[#f8f9fa] border border-gray-200 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-gray-300 transition-shadow text-gray-800 placeholder-gray-400"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+          />
+
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className="w-full bg-[#00A14B] hover:bg-[#008f42] text-white rounded-lg py-3 mt-2 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isSubmitting ? (
+              <span className="flex items-center justify-center">
+                <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2"></span>
+                Processing...
+              </span>
+            ) : (
+              isRegistering ? 'Sign Up' : 'Login'
+            )}
+          </button>
+        </form>
+
+        <p className="mt-6 text-sm text-gray-500">
+          {isRegistering ? 'Already have an account?' : "Don't have an account?"}
+          <button 
+            type="button" 
+            onClick={() => setIsRegistering(!isRegistering)}
+            className="ml-1 text-[#00A14B] hover:underline font-medium"
+          >
+            {isRegistering ? 'Login here' : 'Sign up here'}
+          </button>
+        </p>
       </div>
     </div>
   );
