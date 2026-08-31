@@ -9,14 +9,14 @@ export class ElasticsearchClient {
         { index: { _index: INDEX_NAME, _id: job.id } },
         {
           id: job.id,
-          userId: job.user_id,
+          user_id: job.user_id,
           recipient: job.recipient,
           subject: job.subject,
           body: job.body,
           status: job.status,
-          scheduledAt: job.scheduled_at,
-          sentAt: job.sent_at || null,
-          createdAt: new Date(),
+          scheduled_at: job.scheduled_at,
+          sent_at: job.sent_at || null,
+          created_at: new Date(),
         }
       ]);
 
@@ -36,7 +36,7 @@ export class ElasticsearchClient {
         id,
         doc: {
           status,
-          sentAt: sentAt || null,
+          sent_at: sentAt || null,
         }
       });
     } catch (error: any) {
@@ -51,7 +51,7 @@ export class ElasticsearchClient {
         query: {
           bool: {
             must: [
-              { term: { userId } },
+              { match: { user_id: userId } },
               {
                 multi_match: {
                   query,
