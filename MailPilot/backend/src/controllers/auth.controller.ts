@@ -82,6 +82,7 @@ export class AuthController {
 
       res.redirect(`${env.FRONTEND_URL}/dashboard`);
     } catch (error) {
+      console.error('Google Callback Error:', error);
       next(error);
     }
   }
@@ -124,6 +125,7 @@ export class AuthController {
 
       res.status(201).json({ message: 'Registered successfully', user: { id: user.id, name: user.name, email: user.email } });
     } catch (error) {
+      console.error('Register Error:', error);
       next(error);
     }
   }
@@ -155,6 +157,7 @@ export class AuthController {
 
       res.json({ message: 'Logged in successfully', user: { id: user.id, name: user.name, email: user.email } });
     } catch (error) {
+      console.error('Login Error:', error);
       next(error);
     }
   }

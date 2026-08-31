@@ -1,7 +1,6 @@
 import type { EmailJob } from '../../types';
-import { StatusBadge } from '../common/StatusBadge';
 import { format } from 'date-fns';
-import { ExternalLink, Inbox } from 'lucide-react';
+import { Star, Inbox, ExternalLink } from 'lucide-react';
 
 interface EmailTableProps {
   emails: EmailJob[];
@@ -12,17 +11,17 @@ interface EmailTableProps {
 export function EmailTable({ emails, isLoading, type }: EmailTableProps) {
   if (isLoading) {
     return (
-      <div className="flex justify-center items-center h-[400px]">
-        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-[var(--color-primary)]"></div>
+      <div className="flex justify-center items-center h-full min-h-[400px]">
+        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-[#00A14B]"></div>
       </div>
     );
   }
 
   if (emails.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center h-[400px] text-[var(--color-text-muted)]">
-        <Inbox className="h-12 w-12 mb-4 opacity-50" />
-        <p className="text-lg font-medium">No emails found</p>
+      <div className="flex flex-col items-center justify-center h-full min-h-[400px] text-gray-400">
+        <Inbox className="h-12 w-12 mb-4 opacity-30" />
+        <p className="text-lg font-medium text-gray-600">No emails found</p>
         <p className="text-sm">
           {type === 'SCHEDULED' && "You don't have any emails scheduled."}
           {type === 'SENT' && "You haven't sent any emails yet."}
@@ -33,59 +32,70 @@ export function EmailTable({ emails, isLoading, type }: EmailTableProps) {
   }
 
   return (
-    <div className="w-full overflow-x-auto">
-      <table className="w-full text-left border-collapse">
-        <thead>
-          <tr className="border-b border-[var(--color-border)] text-sm font-medium text-[var(--color-text-muted)]">
-            <th className="py-4 pl-6 pr-4 font-medium">Recipient</th>
-            <th className="py-4 px-4 font-medium">Subject</th>
-            <th className="py-4 px-4 font-medium">
-              {type === 'SENT' ? 'Sent At' : 'Scheduled For'}
-            </th>
-            <th className="py-4 px-4 font-medium">Status</th>
-            <th className="py-4 pr-6 pl-4 font-medium text-right">Actions</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-[var(--color-border)]">
-          {emails.map((email) => (
-            <tr key={email.id} className="hover:bg-[var(--color-surface-hover)]/50 transition-colors group">
-              <td className="py-4 pl-6 pr-4 text-sm text-white font-medium">
-                {email.recipient}
-              </td>
-              <td className="py-4 px-4 text-sm text-[var(--color-text-muted)] truncate max-w-[200px] sm:max-w-[300px]">
-                {email.subject}
-              </td>
-              <td className="py-4 px-4 text-sm text-[var(--color-text-muted)] whitespace-nowrap">
-                {format(
-                  new Date(type === 'SENT' && email.sent_at ? email.sent_at : email.scheduled_at),
-                  'MMM d, yyyy h:mm a'
-                )}
-              </td>
-              <td className="py-4 px-4 whitespace-nowrap">
-                <StatusBadge status={email.status} />
-              </td>
-              <td className="py-4 pr-6 pl-4 text-right">
-                {email.preview_url && (
-                  <a 
-                    href={email.preview_url} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center text-sm font-medium text-[var(--color-primary)] hover:text-[var(--color-primary-hover)]"
-                  >
-                    Preview
-                    <ExternalLink className="ml-1 h-3 w-3" />
-                  </a>
-                )}
-                {email.status === 'FAILED' && email.last_error && (
-                  <span className="text-xs text-[var(--color-error)]" title={email.last_error}>
-                    Error Info
+    <div className="w-full">
+      <div className="divide-y divide-[#eaeaea]">
+        {emails.map((email) => {
+          // Logic for pill styling based on status and time
+          const isScheduled = email.status === 'SCHEDULED' || type === 'SCHEDULED';
+          const timeToDisplay = format(
+            new Date(isScheduled && email.scheduled_at ? email.scheduled_at : (email.sent_at || email.created_at)),
+            'EEE h:mm:ss a'
+          );
+
+          return (
+            <div key={email.id} className="flex items-center px-6 py-4 hover:bg-[#fcfcfc] transition-colors group cursor-pointer">
+              
+              {/* Recipient */}
+              <div className="w-48 flex-shrink-0">
+                <span className="font-semibold text-sm text-[#222]">To: {email.recipient.split('@')[0]}</span>
+              </div>
+
+              {/* Status Pill */}
+              <div className="w-48 flex-shrink-0 flex items-center">
+                {isScheduled ? (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-[#fff0e5] text-[#f27a1a]">
+                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    {timeToDisplay}
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-[#f1f3f5] text-[#495057]">
+                    Sent
                   </span>
                 )}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+              </div>
+
+              {/* Subject & Body Snippet */}
+              <div className="flex-1 min-w-0 truncate pr-6 text-sm">
+                <span className="font-bold text-[#333] mr-2">{email.subject}</span>
+                <span className="text-gray-400 font-normal">
+                  - {email.body.replace(/<[^>]*>?/gm, '').substring(0, 100)}...
+                </span>
+                {email.preview_url && type === 'SENT' && (
+                   <a 
+                     href={email.preview_url} 
+                     target="_blank" 
+                     rel="noopener noreferrer"
+                     className="ml-2 inline-flex items-center text-xs font-medium text-[#00A14B] hover:underline"
+                     onClick={(e) => e.stopPropagation()}
+                   >
+                     Preview <ExternalLink className="ml-1 h-3 w-3" />
+                   </a>
+                )}
+              </div>
+
+              {/* Action Star */}
+              <div className="w-8 flex justify-end flex-shrink-0">
+                <button className="text-gray-300 hover:text-yellow-400 transition-colors">
+                  <Star className="h-4 w-4" />
+                </button>
+              </div>
+
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
