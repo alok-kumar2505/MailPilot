@@ -7,32 +7,7 @@ import { env } from '../config/env';
 import { esClient } from '../integrations/elasticsearch/es.client';
 
 export class EmailService {
-  async ensureDummyUser(): Promise<string> {
-    // For Phase 4 (no auth), we use a default user and dummy sender to satisfy foreign keys
-    let user = await userRepository.findById('00000000-0000-0000-0000-000000000000');
-    if (!user) {
-      user = await userRepository.create({
-        id: '00000000-0000-0000-0000-000000000000',
-        name: 'Test User',
-        email: 'test@example.com',
-      });
-    }
-
-    let senders = await senderRepository.findByUserId(user.id);
-    if (senders.length === 0) {
-      await senderRepository.create({
-        user_id: user.id,
-        email: env.SMTP_USER,
-        ethereal_user: env.SMTP_USER,
-        ethereal_password: env.SMTP_PASSWORD,
-      });
-    }
-
-    return user.id;
-  }
-
-  async scheduleEmails(data: CreateEmailBatchDto) {
-    const userId = await this.ensureDummyUser();
+  async scheduleEmails(userId: string, data: CreateEmailBatchDto) {
     const senders = await senderRepository.findByUserId(userId);
     
     // Parse the initial start time
@@ -50,7 +25,9 @@ export class EmailService {
         currentScheduledTime += actualDelayMs;
       }
 
-      const assignedSender = senders[index % senders.length];
+      // If they have no senders, sender_id is null. We allow this and it will fallback to env vars in the worker, 
+      // but in production they should be forced to add a sender.
+      const assignedSender = senders.length > 0 ? senders[index % senders.length] : null;
 
       return {
         user_id: userId,
@@ -98,21 +75,28 @@ export class EmailService {
     return result;
   }
 
-  async getScheduledEmails(page: number, limit: number) {
-    return emailRepository.findJobsByStatus(['SCHEDULED', 'PROCESSING'], page, limit);
+  async getScheduledEmails(userId: string, page: number, limit: number) {
+    // Note: The repository should be updated to filter by user_id
+    // But for the sake of this test, we assume findJobsByUserIdAndStatus exists.
+    // Let's implement it in the DB query directly or update the repository.
+    // We will update the repository next.
+    return emailRepository.findJobsByUserIdAndStatus(userId, ['SCHEDULED', 'PROCESSING'], page, limit);
   }
 
-  async getSentEmails(page: number, limit: number) {
-    return emailRepository.findJobsByStatus(['SENT', 'FAILED'], page, limit);
+  async getSentEmails(userId: string, page: number, limit: number) {
+    return emailRepository.findJobsByUserIdAndStatus(userId, ['SENT', 'FAILED'], page, limit);
   }
 
-  async searchEmails(query: string) {
-    const userId = await this.ensureDummyUser(); // In a real app, this comes from req.user
+  async searchEmails(userId: string, query: string) {
     return esClient.searchEmails(userId, query);
   }
 
-  async getEmailJobById(id: string) {
-    return emailRepository.findJobById(id);
+  async getEmailJobById(userId: string, id: string) {
+    const job = await emailRepository.findJobById(id);
+    if (job && job.user_id !== userId) {
+      return null; // IDOR protection
+    }
+    return job;
   }
 }
 

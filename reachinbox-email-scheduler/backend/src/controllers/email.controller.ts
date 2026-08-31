@@ -5,11 +5,12 @@ import { createEmailBatchSchema } from '../schemas/email.schema';
 export class EmailController {
   async createEmails(req: Request, res: Response, next: NextFunction) {
     try {
+      if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
       // 1. Validate request body
       const validatedData = createEmailBatchSchema.parse(req.body);
 
       // 2. Call service layer
-      const result = await emailService.scheduleEmails(validatedData);
+      const result = await emailService.scheduleEmails(req.user.id, validatedData);
 
       // 3. Return response
       res.status(201).json({
@@ -24,10 +25,11 @@ export class EmailController {
 
   async getScheduledEmails(req: Request, res: Response, next: NextFunction) {
     try {
+      if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
       const page = parseInt(req.query.page as string) || 1;
       const limit = parseInt(req.query.limit as string) || 20;
 
-      const result = await emailService.getScheduledEmails(page, limit);
+      const result = await emailService.getScheduledEmails(req.user.id, page, limit);
       res.json(result);
     } catch (error) {
       next(error);
@@ -36,10 +38,11 @@ export class EmailController {
 
   async getSentEmails(req: Request, res: Response, next: NextFunction) {
     try {
+      if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
       const page = parseInt(req.query.page as string) || 1;
       const limit = parseInt(req.query.limit as string) || 20;
 
-      const result = await emailService.getSentEmails(page, limit);
+      const result = await emailService.getSentEmails(req.user.id, page, limit);
       res.json(result);
     } catch (error) {
       next(error);
@@ -48,8 +51,9 @@ export class EmailController {
 
   async getEmailById(req: Request, res: Response, next: NextFunction) {
     try {
+      if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
       const { id } = req.params;
-      const job = await emailService.getEmailJobById(id);
+      const job = await emailService.getEmailJobById(req.user.id, id);
 
       if (!job) {
         return res.status(404).json({ message: 'Email job not found' });
@@ -60,13 +64,15 @@ export class EmailController {
       next(error);
     }
   }
+  
   async search(req: Request, res: Response, next: NextFunction) {
     try {
+      if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
       const q = req.query.q as string;
       if (!q) {
         return res.status(400).json({ error: 'Query parameter "q" is required' });
       }
-      const results = await emailService.searchEmails(q);
+      const results = await emailService.searchEmails(req.user.id, q);
       res.json({ results });
     } catch (error) {
       next(error);

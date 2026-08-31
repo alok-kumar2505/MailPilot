@@ -6,44 +6,34 @@ import { elasticClient } from '../config/elasticsearch';
 const router = Router();
 
 router.get('/health', async (req: Request, res: Response) => {
-  const healthStatus: any = {
+  const health: any = {
     api: 'ok',
     timestamp: new Date().toISOString(),
-    services: {},
   };
 
-  // Check PostgreSQL
   try {
     await db.raw('SELECT 1');
-    healthStatus.services.postgresql = 'ok';
-  } catch (error: any) {
-    healthStatus.services.postgresql = 'error';
-    healthStatus.services.postgresqlError = error.message;
-    healthStatus.api = 'error';
+    health.database = 'ok';
+  } catch (error) {
+    health.database = 'error';
   }
 
-  // Check Redis
   try {
-    const ping = await redis.ping();
-    healthStatus.services.redis = ping === 'PONG' ? 'ok' : 'error';
-  } catch (error: any) {
-    healthStatus.services.redis = 'error';
-    healthStatus.services.redisError = error.message;
-    healthStatus.api = 'error';
+    await redis.ping();
+    health.redis = 'ok';
+  } catch (error) {
+    health.redis = 'error';
   }
 
-  // Check Elasticsearch
   try {
-    const esHealth = await elasticClient.cluster.health();
-    healthStatus.services.elasticsearch = esHealth.status;
-  } catch (error: any) {
-    healthStatus.services.elasticsearch = 'error';
-    healthStatus.services.elasticsearchError = error.message;
-    healthStatus.api = 'error';
+    const esPing = await elasticClient.ping();
+    health.elasticsearch = esPing ? 'ok' : 'error';
+  } catch (error) {
+    health.elasticsearch = 'error';
   }
 
-  const statusCode = healthStatus.api === 'ok' ? 200 : 503;
-  res.status(statusCode).json(healthStatus);
+  const statusCode = Object.values(health).includes('error') ? 503 : 200;
+  res.status(statusCode).json(health);
 });
 
 export default router;

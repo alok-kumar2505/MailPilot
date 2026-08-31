@@ -36,8 +36,8 @@ export class SlackController {
         throw new Error(data.error);
       }
 
-      // For Phase 5 we use the dummy user
-      const user = await userRepository.findById('00000000-0000-0000-0000-000000000000');
+      if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+      const user = await userRepository.findById(req.user.id);
       if (!user) throw new Error('User not found');
 
       // Store in DB
@@ -60,8 +60,8 @@ export class SlackController {
 
   async status(req: Request, res: Response, next: NextFunction) {
     try {
-      const user = await userRepository.findById('00000000-0000-0000-0000-000000000000');
-      const connection = await db('slack_connections').where({ user_id: user?.id }).first();
+      if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+      const connection = await db('slack_connections').where({ user_id: req.user.id }).first();
       
       res.json({ connected: !!connection, teamName: connection?.team_name });
     } catch (error) {
@@ -71,8 +71,8 @@ export class SlackController {
 
   async disconnect(req: Request, res: Response, next: NextFunction) {
     try {
-      const user = await userRepository.findById('00000000-0000-0000-0000-000000000000');
-      await db('slack_connections').where({ user_id: user?.id }).delete();
+      if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+      await db('slack_connections').where({ user_id: req.user.id }).delete();
       res.json({ message: 'Disconnected successfully' });
     } catch (error) {
       next(error);

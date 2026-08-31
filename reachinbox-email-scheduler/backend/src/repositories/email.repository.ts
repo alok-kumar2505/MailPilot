@@ -37,32 +37,24 @@ export class EmailRepository {
     });
   }
 
-  async findJobsByStatus(
-    statuses: string[],
-    page: number = 1,
-    limit: number = 20
-  ) {
+  async findJobsByUserIdAndStatus(userId: string, statuses: string[], page: number, limit: number) {
     const offset = (page - 1) * limit;
 
-    const [countResult] = await db('email_jobs')
-      .whereIn('status', statuses)
-      .count('* as total');
+    const query = db('email_jobs')
+      .where({ user_id: userId })
+      .whereIn('status', statuses);
 
-    const total = Number(countResult.total);
-
-    const jobs = await db('email_jobs')
-      .whereIn('status', statuses)
-      .orderBy('scheduled_at', 'asc')
-      .limit(limit)
-      .offset(offset);
+    const [countResult, jobs] = await Promise.all([
+      query.clone().count('id as total').first(),
+      query.clone().orderBy('scheduled_at', 'asc').limit(limit).offset(offset),
+    ]);
 
     return {
       data: jobs,
-      meta: {
-        total,
+      pagination: {
+        total: parseInt(countResult?.total as string) || 0,
         page,
         limit,
-        totalPages: Math.ceil(total / limit),
       },
     };
   }

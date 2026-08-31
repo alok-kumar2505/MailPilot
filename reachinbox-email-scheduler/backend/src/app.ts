@@ -1,8 +1,10 @@
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
+import cookieParser from 'cookie-parser';
 import { env } from './config/env';
 import healthRouter from './routes/health';
+import authRouter from './routes/auth.routes';
 import emailRouter from './routes/email.routes';
 import slackRouter from './routes/slack.routes';
 import { errorHandler } from './middleware/error';
@@ -10,6 +12,7 @@ import { createBullBoard } from '@bull-board/api';
 import { BullMQAdapter } from '@bull-board/api/bullMQAdapter';
 import { ExpressAdapter } from '@bull-board/express';
 import { emailQueue } from './queues/email.queue';
+import { authMiddleware } from './middleware/auth.middleware';
 
 const app = express();
 
@@ -32,11 +35,15 @@ app.use(cors({
 // Body parsing
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
 
-// Routes
+// Public Routes
 app.use('/api', healthRouter);
-app.use('/api/emails', emailRouter);
-app.use('/api/slack', slackRouter);
+app.use('/api/auth', authRouter);
+
+// Protected Routes
+app.use('/api/emails', authMiddleware, emailRouter);
+app.use('/api/slack', authMiddleware, slackRouter);
 
 // Bull Board Route (admin access only in production)
 app.use('/admin/queues', serverAdapter.getRouter());
