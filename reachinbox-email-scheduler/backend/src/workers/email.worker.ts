@@ -4,6 +4,8 @@ import { env } from '../config/env';
 import { emailRepository } from '../repositories/email.repository';
 import { senderRepository } from '../repositories/sender.repository';
 import { emailSender } from '../integrations/smtp/email.sender';
+import { esClient } from '../integrations/elasticsearch/es.client';
+import { slackClient } from '../integrations/slack/slack.client';
 
 const emailWorker = new Worker(
   'email-send',
@@ -42,6 +44,9 @@ const emailWorker = new Worker(
       // Reschedule in PostgreSQL
       await emailRepository.rescheduleJob(emailJobId, nextHour);
 
+      // Fire and forget Slack notification
+      slackClient.notifyRateLimit(claimedJob.user_id, senderId, env.MAX_EMAILS_PER_HOUR).catch(() => {});
+
       // Tell BullMQ to move this job to delayed state (requires BullMQ 4+)
       await job.moveToDelayed(nextHour.getTime(), job.token!);
       throw new DelayedError();
@@ -71,12 +76,16 @@ const emailWorker = new Worker(
       );
 
       // 5. SUCCESS: Mark as SENT in PostgreSQL
+      const sentAt = new Date();
       await emailRepository.updateJobStatus(emailJobId, {
         status: 'SENT',
-        sent_at: new Date(),
+        sent_at: sentAt,
         message_id: result.messageId,
         preview_url: result.previewUrl,
       });
+
+      // Update Elasticsearch (fire and forget)
+      esClient.updateJobStatus(emailJobId, 'SENT', sentAt).catch(() => {});
 
       console.log(`[Worker] Successfully sent email to ${claimedJob.recipient}. Preview: ${result.previewUrl}`);
     } catch (error: any) {
@@ -88,6 +97,10 @@ const emailWorker = new Worker(
           status: 'FAILED',
           last_error: error.message,
         });
+        
+        // Update Elasticsearch (fire and forget)
+        esClient.updateJobStatus(emailJobId, 'FAILED').catch(() => {});
+        
         console.log(`[Worker] Exhausted retries for ${emailJobId}. Marked as FAILED.`);
       } else {
         // Just record the error and revert to SCHEDULED for the next retry

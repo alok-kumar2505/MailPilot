@@ -60,6 +60,18 @@ export class EmailController {
       next(error);
     }
   }
+  async search(req: Request, res: Response, next: NextFunction) {
+    try {
+      const q = req.query.q as string;
+      if (!q) {
+        return res.status(400).json({ error: 'Query parameter "q" is required' });
+      }
+      const results = await emailService.searchEmails(q);
+      res.json({ results });
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 export const emailController = new EmailController();

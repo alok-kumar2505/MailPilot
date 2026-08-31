@@ -106,6 +106,11 @@ export class EmailService {
     return emailRepository.findJobsByStatus(['SENT', 'FAILED'], page, limit);
   }
 
+  async searchEmails(query: string) {
+    const userId = await this.ensureDummyUser(); // In a real app, this comes from req.user
+    return esClient.searchEmails(userId, query);
+  }
+
   async getEmailJobById(id: string) {
     return emailRepository.findJobById(id);
   }
