@@ -22,6 +22,7 @@ export function ComposeModal({ isOpen, onClose, onSuccess }: ComposeModalProps) 
 
   const [recipients, setRecipients] = useState<string[]>([]);
   const [singleRecipient, setSingleRecipient] = useState('');
+  const [isRecipientsExpanded, setIsRecipientsExpanded] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const editorRef = useRef<HTMLDivElement>(null);
 
@@ -319,7 +320,7 @@ export function ComposeModal({ isOpen, onClose, onSuccess }: ComposeModalProps) 
             <span className="w-20 flex-shrink-0 text-sm font-semibold text-gray-500">To</span>
             
             <div className="flex-1 flex flex-wrap gap-2 items-center">
-              {recipients.map((email) => (
+              {(isRecipientsExpanded ? recipients : recipients.slice(0, 5)).map((email) => (
                 <div key={email} className="bg-[#e8f7ec] border border-[#00A14B] px-3 py-1 rounded-full text-xs font-medium text-[#333] flex items-center gap-1 shadow-sm">
                   {email}
                   <button onClick={() => removeRecipient(email)} className="text-gray-500 hover:text-red-500 ml-1">
@@ -327,6 +328,14 @@ export function ComposeModal({ isOpen, onClose, onSuccess }: ComposeModalProps) 
                   </button>
                 </div>
               ))}
+              {!isRecipientsExpanded && recipients.length > 5 && (
+                <button 
+                  onClick={() => setIsRecipientsExpanded(true)}
+                  className="bg-[#e8f7ec] border border-[#00A14B] px-3 py-1 rounded-full text-xs font-medium text-[#333] hover:bg-[#d1ecd8] transition-colors shadow-sm"
+                >
+                  +{recipients.length - 5} more
+                </button>
+              )}
               <input 
                 type="text"
                 placeholder={recipients.length === 0 ? "recipient@example.com (press Enter)" : ""}
