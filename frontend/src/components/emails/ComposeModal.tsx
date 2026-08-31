@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import Papa from 'papaparse';
-import { ArrowLeft, Paperclip, Clock, Bold, Italic, Underline, List, ListOrdered, Link, CheckCircle2, Upload, X } from 'lucide-react';
+import { ArrowLeft, Paperclip, Clock, Bold, Italic, Underline, List, ListOrdered, Link, Upload, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { api } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
@@ -238,7 +238,7 @@ export function ComposeModal({ isOpen, onClose, onSuccess }: ComposeModalProps) 
     <div className="fixed inset-0 z-50 flex flex-col bg-white overflow-hidden animate-in fade-in zoom-in-95 duration-200">
       <style>{`
         [contenteditable=true]:empty:before {
-          content: attr(placeholder);
+          content: attr(data-placeholder);
           color: #d1d5db;
           pointer-events: none;
           display: block;
@@ -449,10 +449,10 @@ export function ComposeModal({ isOpen, onClose, onSuccess }: ComposeModalProps) 
           <div 
             ref={editorRef}
             contentEditable
-            className="flex-1 w-full bg-transparent p-6 text-sm text-gray-800 focus:outline-none placeholder-gray-300 overflow-y-auto"
+            className="flex-1 w-full bg-transparent p-6 text-sm text-gray-800 focus:outline-none overflow-y-auto"
             onInput={(e) => setBody(e.currentTarget.innerHTML)}
             style={{ minHeight: '300px' }}
-            placeholder="Type Your Reply..."
+            data-placeholder="Type Your Reply..."
           />
         </div>
 

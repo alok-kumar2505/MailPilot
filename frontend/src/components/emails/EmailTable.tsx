@@ -1,7 +1,7 @@
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import type { EmailJob } from '../../types';
 import { format } from 'date-fns';
-import { Star, Inbox, ExternalLink, Edit2, CheckCircle2, X } from 'lucide-react';
+import { Star, Inbox, Edit2, CheckCircle2, X } from 'lucide-react';
 import { api } from '../../services/api';
 import toast from 'react-hot-toast';
 

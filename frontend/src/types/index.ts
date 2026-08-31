@@ -23,6 +23,7 @@ export interface EmailJob {
   created_at: string;
   updated_at: string;
   is_favourited?: boolean;
+  attachments?: any;
 }
 
 export interface PaginationMeta {

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
-import { LogOut, Search, RefreshCw, Clock, Send, Filter, ChevronDown } from 'lucide-react';
+import { Search, RefreshCw, Clock, Send, Filter, ChevronDown } from 'lucide-react';
 import type { SlackStatus, EmailJob, PaginatedResponse, SearchResponse } from '../types';
 import toast from 'react-hot-toast';
 import { ComposeModal } from '../components/emails/ComposeModal';
@@ -11,7 +11,6 @@ export function Dashboard() {
   const { user, logout } = useAuth();
   const [activeTab, setActiveTab] = useState<'SCHEDULED' | 'SENT'>('SCHEDULED');
   const [slackStatus, setSlackStatus] = useState<SlackStatus>({ connected: false });
-  const [isCheckingSlack, setIsCheckingSlack] = useState(true);
   const [isComposeOpen, setIsComposeOpen] = useState(false);
   const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false);
 
@@ -52,8 +51,6 @@ export function Dashboard() {
       setSlackStatus(response.data);
     } catch (error) {
       console.error('Failed to fetch Slack status');
-    } finally {
-      setIsCheckingSlack(false);
     }
   }, []);
 
