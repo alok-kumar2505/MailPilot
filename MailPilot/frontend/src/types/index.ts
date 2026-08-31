@@ -22,6 +22,7 @@ export interface EmailJob {
   last_error: string | null;
   created_at: string;
   updated_at: string;
+  is_favourited?: boolean;
 }
 
 export interface PaginationMeta {

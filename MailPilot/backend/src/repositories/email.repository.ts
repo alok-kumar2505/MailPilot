@@ -108,6 +108,17 @@ export class EmailRepository {
       .returning('*');
     return updated;
   }
+
+  async toggleFavourite(id: string, is_favourited: boolean) {
+    const [updated] = await db('email_jobs')
+      .where({ id })
+      .update({
+        is_favourited,
+        updated_at: new Date(),
+      })
+      .returning('*');
+    return updated;
+  }
 }
 
 export const emailRepository = new EmailRepository();

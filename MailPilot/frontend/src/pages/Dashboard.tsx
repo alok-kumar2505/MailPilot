@@ -267,6 +267,7 @@ export function Dashboard() {
             emails={displayedEmails} 
             isLoading={isLoadingEmails} 
             type={isSearching ? 'SEARCH' : activeTab} 
+            onUpdate={fetchEmails}
           />
         </div>
       </main>

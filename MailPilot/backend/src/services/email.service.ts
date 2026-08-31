@@ -102,6 +102,35 @@ export class EmailService {
     }
     return job;
   }
+
+  async toggleFavourite(userId: string, id: string, is_favourited: boolean) {
+    const job = await emailRepository.findJobById(id);
+    if (!job || job.user_id !== userId) throw new Error('Job not found');
+    return emailRepository.toggleFavourite(id, is_favourited);
+  }
+
+  async rescheduleEmail(userId: string, id: string, newScheduledAt: string) {
+    const job = await emailRepository.findJobById(id);
+    if (!job || job.user_id !== userId) throw new Error('Job not found');
+    
+    const newDate = new Date(newScheduledAt);
+    if (newDate < new Date()) throw new Error('Cannot reschedule in the past');
+    
+    // update db
+    const updated = await emailRepository.rescheduleJob(id, newDate);
+    
+    // Try to find existing bullmq job and remove it
+    const bullJob = await emailQueue.getJob(id);
+    if (bullJob) {
+      await bullJob.remove();
+    }
+    
+    // Add new job with new delay
+    const delay = newDate.getTime() - Date.now();
+    await emailQueue.add('send-email', { emailJobId: id }, { jobId: id, delay });
+    
+    return updated;
+  }
 }
 
 export const emailService = new EmailService();

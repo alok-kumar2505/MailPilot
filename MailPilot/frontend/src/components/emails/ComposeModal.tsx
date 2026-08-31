@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import Papa from 'papaparse';
-import { ArrowLeft, Paperclip, Clock, Bold, Italic, Underline, List, ListOrdered, Link, CheckCircle2, Upload } from 'lucide-react';
+import { ArrowLeft, Paperclip, Clock, Bold, Italic, Underline, List, ListOrdered, Link, CheckCircle2, Upload, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { api } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
@@ -17,7 +17,7 @@ export function ComposeModal({ isOpen, onClose, onSuccess }: ComposeModalProps) 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
-  const [delayMs, setDelayMs] = useState(1000);
+  const [delaySec, setDelaySec] = useState(1);
   const [hourlyLimit, setHourlyLimit] = useState(500);
 
   const [recipients, setRecipients] = useState<string[]>([]);
@@ -40,6 +40,23 @@ export function ComposeModal({ isOpen, onClose, onSuccess }: ComposeModalProps) 
   // Send Later panel state
   const [showSendLater, setShowSendLater] = useState(false);
   const [selectedTime, setSelectedTime] = useState<Date | null>(null);
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (['Enter', ',', ' '].includes(e.key)) {
+      e.preventDefault();
+      const val = singleRecipient.trim();
+      if (val && !recipients.includes(val) && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)) {
+        setRecipients([...recipients, val]);
+        setSingleRecipient('');
+      } else if (val) {
+        toast.error('Invalid or duplicate email address');
+      }
+    }
+  };
+
+  const removeRecipient = (emailToRemove: string) => {
+    setRecipients(recipients.filter(email => email !== emailToRemove));
+  };
 
   if (!isOpen) return null;
 
@@ -112,7 +129,7 @@ export function ComposeModal({ isOpen, onClose, onSuccess }: ComposeModalProps) 
         subject,
         body,
         startTime: selectedTime.toISOString(),
-        delayBetweenMs: delayMs,
+        delayBetweenMs: delaySec * 1000,
         hourlyLimit,
         recipients: allRecipients,
       });
@@ -200,26 +217,33 @@ export function ComposeModal({ isOpen, onClose, onSuccess }: ComposeModalProps) 
           </div>
           
           <div className="flex items-center py-3 border-b border-[#eaeaea]/50 pr-4">
-            <span className="w-20 text-sm font-semibold text-gray-500">To</span>
+            <span className="w-20 flex-shrink-0 text-sm font-semibold text-gray-500">To</span>
             
-            <input 
-              type="text"
-              placeholder="recipient@example.com"
-              className="flex-1 text-sm font-medium text-gray-800 placeholder-gray-300 focus:outline-none bg-transparent"
-              value={singleRecipient}
-              onChange={(e) => setSingleRecipient(e.target.value)}
-            />
+            <div className="flex-1 flex flex-wrap gap-2 items-center">
+              {recipients.map((email) => (
+                <div key={email} className="bg-gray-100 border border-gray-200 px-2 py-1 rounded-md text-xs font-medium text-gray-700 flex items-center gap-1 shadow-sm">
+                  {email}
+                  <button onClick={() => removeRecipient(email)} className="text-gray-400 hover:text-red-500 ml-0.5">
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              ))}
+              <input 
+                type="text"
+                placeholder={recipients.length === 0 ? "recipient@example.com (press Enter)" : ""}
+                className="flex-1 min-w-[200px] text-sm font-medium text-gray-800 placeholder-gray-300 focus:outline-none bg-transparent"
+                value={singleRecipient}
+                onChange={(e) => setSingleRecipient(e.target.value)}
+                onKeyDown={handleKeyDown}
+              />
+            </div>
             
             <input type="file" accept=".csv,.txt" className="hidden" ref={fileInputRef} onChange={handleFileChange} />
             <button 
               onClick={() => fileInputRef.current?.click()}
-              className="text-sm font-medium flex items-center text-[#00A14B] hover:text-[#008f42] transition-colors"
+              className="text-sm font-medium flex items-center text-[#00A14B] hover:text-[#008f42] transition-colors flex-shrink-0 ml-4"
             >
-              {recipients.length > 0 ? (
-                <span className="flex items-center gap-1"><CheckCircle2 className="w-4 h-4"/> {recipients.length} Uploaded</span>
-              ) : (
-                <span className="flex items-center gap-1"><Upload className="w-4 h-4 mb-0.5" /> Upload List</span>
-              )}
+              <Upload className="w-4 h-4 mr-1.5 mb-0.5" /> Upload List
             </button>
           </div>
 
@@ -254,11 +278,11 @@ export function ComposeModal({ isOpen, onClose, onSuccess }: ComposeModalProps) 
               <span className="text-sm font-semibold text-gray-500">Delay between 2 emails</span>
               <input 
                 type="number" 
-                value={delayMs}
-                onChange={(e) => setDelayMs(Number(e.target.value))}
+                value={delaySec}
+                onChange={(e) => setDelaySec(Number(e.target.value))}
                 className="w-20 border border-gray-200 rounded-md px-3 py-1 text-sm text-center focus:outline-none focus:border-[#00A14B]"
               />
-              <span className="text-xs text-gray-400">ms</span>
+              <span className="text-xs text-gray-400">sec</span>
             </div>
             <div className="flex items-center gap-3">
               <span className="text-sm font-semibold text-gray-500">Hourly Limit</span>
