@@ -15,6 +15,7 @@ import { emailQueue } from './queues/email.queue';
 import { authMiddleware } from './middleware/auth.middleware';
 
 const app = express();
+app.set('trust proxy', 1);
 
 // Bull Board setup
 const serverAdapter = new ExpressAdapter();
