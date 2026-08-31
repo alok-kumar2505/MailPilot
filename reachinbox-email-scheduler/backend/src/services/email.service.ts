@@ -1,7 +1,7 @@
 import { emailRepository } from '../repositories/email.repository';
 import { userRepository } from '../repositories/user.repository';
 import { CreateEmailBatchDto } from '../schemas/email.schema';
-import { randomUUID } from 'crypto';
+import { emailQueue } from '../queues/email.queue';
 
 export class EmailService {
   async ensureDummyUser(): Promise<string> {
@@ -48,7 +48,7 @@ export class EmailService {
       };
     });
 
-    // Save batch and jobs
+    // Save batch and jobs to PostgreSQL FIRST
     const result = await emailRepository.createBatchWithJobs(
       {
         user_id: userId,
@@ -60,6 +60,21 @@ export class EmailService {
       },
       jobsData
     );
+
+    // Enqueue each job in BullMQ
+    const now = Date.now();
+    for (const job of result.jobs) {
+      const delay = Math.max(0, new Date(job.scheduled_at).getTime() - now);
+      
+      await emailQueue.add(
+        'send-email',
+        { emailJobId: job.id },
+        {
+          jobId: job.id, // BullMQ Job ID tracks exactly to DB EmailJob ID
+          delay,
+        }
+      );
+    }
 
     return result;
   }

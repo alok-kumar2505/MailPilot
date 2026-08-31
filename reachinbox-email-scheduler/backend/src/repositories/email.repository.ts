@@ -70,6 +70,17 @@ export class EmailRepository {
   async findJobById(id: string) {
     return db('email_jobs').where({ id }).first();
   }
+
+  async updateJobStatus(id: string, updates: { status: string; sent_at?: Date; last_error?: string; message_id?: string; attempts?: number }) {
+    const [updated] = await db('email_jobs')
+      .where({ id })
+      .update({
+        ...updates,
+        updated_at: new Date(),
+      })
+      .returning('*');
+    return updated;
+  }
 }
 
 export const emailRepository = new EmailRepository();
