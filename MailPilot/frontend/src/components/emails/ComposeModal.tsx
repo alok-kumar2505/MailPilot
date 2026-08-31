@@ -4,7 +4,7 @@ import { ArrowLeft, Paperclip, Clock, Bold, Italic, Underline, List, ListOrdered
 import toast from 'react-hot-toast';
 import { api } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
-import { format, addDays, addHours, startOfHour } from 'date-fns';
+import { format } from 'date-fns';
 
 interface ComposeModalProps {
   isOpen: boolean;
@@ -23,6 +23,19 @@ export function ComposeModal({ isOpen, onClose, onSuccess }: ComposeModalProps) 
   const [recipients, setRecipients] = useState<string[]>([]);
   const [singleRecipient, setSingleRecipient] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [attachments, setAttachments] = useState<File[]>([]);
+  const attachmentInputRef = useRef<HTMLInputElement>(null);
+
+  const handleAttachmentChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      setAttachments([...attachments, ...Array.from(e.target.files)]);
+    }
+  };
+
+  const removeAttachment = (index: number) => {
+    setAttachments(attachments.filter((_, i) => i !== index));
+  };
 
   // Send Later panel state
   const [showSendLater, setShowSendLater] = useState(false);
@@ -113,14 +126,7 @@ export function ComposeModal({ isOpen, onClose, onSuccess }: ComposeModalProps) 
     }
   };
 
-  // Mock times for Send Later
-  const tomorrow = startOfHour(addDays(new Date(), 1));
-  const timeOptions = [
-    { label: 'Tomorrow', date: tomorrow },
-    { label: 'Tomorrow, 10:00 AM', date: addHours(tomorrow, 10) },
-    { label: 'Tomorrow, 11:00 AM', date: addHours(tomorrow, 11) },
-    { label: 'Tomorrow, 3:00 PM', date: addHours(tomorrow, 15) },
-  ];
+
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-white overflow-hidden animate-in fade-in zoom-in-95 duration-200">
@@ -133,7 +139,11 @@ export function ComposeModal({ isOpen, onClose, onSuccess }: ComposeModalProps) 
         </button>
 
         <div className="flex items-center gap-4">
-          <button className="text-gray-400 hover:text-gray-600 transition-colors">
+          <input type="file" multiple className="hidden" ref={attachmentInputRef} onChange={handleAttachmentChange} />
+          <button 
+            onClick={() => attachmentInputRef.current?.click()}
+            className="text-gray-400 hover:text-gray-600 transition-colors"
+          >
             <Paperclip className="h-5 w-5" />
           </button>
           <button 
@@ -160,18 +170,13 @@ export function ComposeModal({ isOpen, onClose, onSuccess }: ComposeModalProps) 
                 {selectedTime ? format(selectedTime, 'PPpp') : 'Pick date & time'}
               </p>
             </div>
-            <div className="py-2">
-              {timeOptions.map((opt, i) => (
-                <button
-                  key={i}
-                  onClick={() => setSelectedTime(opt.date)}
-                  className={`w-full text-left px-4 py-2.5 text-sm hover:bg-gray-50 transition-colors ${
-                    selectedTime?.getTime() === opt.date.getTime() ? 'bg-[#eef8f2] text-[#00A14B] font-medium' : 'text-gray-600'
-                  }`}
-                >
-                  {opt.label}
-                </button>
-              ))}
+            <div className="py-4 px-4">
+              <input 
+                type="datetime-local"
+                className="w-full text-sm text-gray-800 border border-gray-200 rounded-md p-2 focus:outline-none focus:border-[#00A14B]"
+                value={selectedTime ? format(selectedTime, "yyyy-MM-dd'T'HH:mm") : ''}
+                onChange={(e) => setSelectedTime(e.target.value ? new Date(e.target.value) : null)}
+              />
             </div>
             <div className="p-3 border-t border-[#eaeaea] flex justify-end gap-2">
               <button onClick={() => setShowSendLater(false)} className="text-sm font-medium text-gray-500 hover:text-gray-800 px-3 py-1.5 rounded-md">Cancel</button>
@@ -228,6 +233,21 @@ export function ComposeModal({ isOpen, onClose, onSuccess }: ComposeModalProps) 
               className="flex-1 text-sm font-medium text-gray-800 placeholder-gray-300 focus:outline-none"
             />
           </div>
+
+          {attachments.length > 0 && (
+            <div className="flex items-start py-3 border-b border-[#eaeaea]/50">
+              <span className="w-20 text-sm font-semibold text-gray-500 mt-1.5">Attached</span>
+              <div className="flex-1 flex flex-wrap gap-2">
+                {attachments.map((file, idx) => (
+                  <div key={idx} className="flex items-center gap-2 bg-gray-100 px-3 py-1.5 rounded-md text-sm border border-gray-200">
+                    <Paperclip className="w-3.5 h-3.5 text-gray-400" />
+                    <span className="text-gray-700 max-w-[200px] truncate">{file.name}</span>
+                    <button onClick={() => removeAttachment(idx)} className="text-gray-400 hover:text-red-500 ml-1">×</button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div className="flex items-center py-4 gap-8">
             <div className="flex items-center gap-3">

@@ -23,6 +23,16 @@ export class EmailController {
     }
   }
 
+  async getStats(req: Request, res: Response, next: NextFunction) {
+    try {
+      if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+      const stats = await emailService.getStats(req.user.id);
+      res.json(stats);
+    } catch (error) {
+      next(error);
+    }
+  }
+
   async getScheduledEmails(req: Request, res: Response, next: NextFunction) {
     try {
       if (!req.user) return res.status(401).json({ error: 'Unauthorized' });

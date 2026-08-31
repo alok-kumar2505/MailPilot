@@ -37,6 +37,16 @@ export class EmailRepository {
     });
   }
 
+  async getStats(userId: string) {
+    const scheduled = await db('email_jobs').where({ user_id: userId }).whereIn('status', ['SCHEDULED', 'PROCESSING']).count('id as total').first();
+    const sent = await db('email_jobs').where({ user_id: userId }).whereIn('status', ['SENT', 'FAILED']).count('id as total').first();
+    
+    return {
+      scheduled: parseInt(scheduled?.total as string) || 0,
+      sent: parseInt(sent?.total as string) || 0,
+    };
+  }
+
   async findJobsByUserIdAndStatus(userId: string, statuses: string[], page: number, limit: number) {
     const offset = (page - 1) * limit;
 

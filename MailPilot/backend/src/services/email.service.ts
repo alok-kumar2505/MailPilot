@@ -75,6 +75,10 @@ export class EmailService {
     return result;
   }
 
+  async getStats(userId: string) {
+    return emailRepository.getStats(userId);
+  }
+
   async getScheduledEmails(userId: string, page: number, limit: number) {
     // Note: The repository should be updated to filter by user_id
     // But for the sake of this test, we assume findJobsByUserIdAndStatus exists.

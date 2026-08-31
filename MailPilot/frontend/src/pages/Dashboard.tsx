@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
 import { LogOut, Search, RefreshCw, Clock, Send, Filter, ChevronDown } from 'lucide-react';
@@ -19,6 +19,13 @@ export function Dashboard() {
   const [isLoadingEmails, setIsLoadingEmails] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
+  
+  // Filter state
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest');
+
+  // Stats state
+  const [stats, setStats] = useState({ scheduled: 0, sent: 0 });
 
   const checkSlackStatus = useCallback(async () => {
     try {
@@ -37,6 +44,10 @@ export function Dashboard() {
       const endpoint = activeTab === 'SCHEDULED' ? '/api/emails/scheduled' : '/api/emails/sent';
       const response = await api.get<PaginatedResponse<EmailJob>>(endpoint);
       setEmails(response.data.data);
+      
+      // Fetch stats
+      const statsResponse = await api.get('/api/emails/stats');
+      setStats(statsResponse.data);
     } catch (error) {
       toast.error('Failed to load emails');
     } finally {
@@ -90,14 +101,23 @@ export function Dashboard() {
     fetchEmails();
   };
 
+  const displayedEmails = useMemo(() => {
+    let result = [...emails];
+    // Backend returns newest first. Reverse for oldest first.
+    if (sortOrder === 'oldest') {
+      result.reverse();
+    }
+    return result;
+  }, [emails, sortOrder]);
+
   return (
     <div className="min-h-screen bg-white flex text-[#222]">
       {/* Sidebar */}
       <aside className="w-64 flex-shrink-0 flex flex-col pt-6 px-4">
         {/* Logo */}
         <div className="mb-8 pl-2">
-          <h1 className="text-3xl font-extrabold tracking-tighter uppercase font-mono">
-            ONB
+          <h1 className="text-3xl font-extrabold tracking-tighter uppercase font-mono text-[#00A14B]">
+            MailPilot
           </h1>
         </div>
 
@@ -128,10 +148,15 @@ export function Dashboard() {
             <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-[#eaeaea] rounded-xl shadow-sm overflow-hidden z-50">
               <button 
                 onClick={() => window.location.href = `${api.defaults.baseURL}/api/slack/connect`}
-                className="w-full text-left px-4 py-3 text-sm text-[#333] hover:bg-gray-50 transition-colors flex items-center justify-between"
+                className="w-full text-left px-4 py-3 text-sm text-[#333] hover:bg-gray-50 transition-colors flex flex-col justify-center"
               >
-                Slack
-                {slackStatus.connected && <span className="text-xs text-[#00A14B] font-medium">Connected</span>}
+                <div className="flex items-center justify-between w-full">
+                  <span>Slack</span>
+                  {slackStatus.connected && <span className="text-xs text-[#00A14B] font-medium">Connected</span>}
+                </div>
+                {slackStatus.connected && slackStatus.teamName && (
+                  <span className="text-xs text-gray-500 mt-1 truncate">{slackStatus.teamName}</span>
+                )}
               </button>
               <button 
                 onClick={logout}
@@ -167,8 +192,7 @@ export function Dashboard() {
               <Clock className="h-4 w-4" />
               <span>Scheduled</span>
             </div>
-            {/* Mocked counts based on screenshots */}
-            <span className="text-xs opacity-70">12</span>
+            <span className="text-xs opacity-70">{stats.scheduled}</span>
           </button>
 
           <button
@@ -183,7 +207,7 @@ export function Dashboard() {
               <Send className="h-4 w-4" />
               <span>Sent</span>
             </div>
-            <span className="text-xs opacity-70">785</span>
+            <span className="text-xs opacity-70">{stats.sent}</span>
           </button>
         </div>
       </aside>
@@ -202,10 +226,35 @@ export function Dashboard() {
               className="w-full bg-[#f4f5f7] border-none rounded-full py-2 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-[#00A14B]/30 transition-shadow"
             />
           </div>
-          <div className="flex items-center gap-3 text-gray-400">
-            <button className="p-2 hover:bg-gray-100 rounded-full transition-colors">
+          <div className="flex items-center gap-3 text-gray-400 relative">
+            <button 
+              onClick={() => setIsFilterOpen(!isFilterOpen)}
+              className={`p-2 rounded-full transition-colors ${isFilterOpen ? 'bg-gray-100 text-[#00A14B]' : 'hover:bg-gray-100'}`}
+            >
               <Filter className="h-4 w-4" />
             </button>
+            
+            {/* Filter Dropdown */}
+            {isFilterOpen && (
+              <div className="absolute top-12 right-10 w-48 bg-white border border-[#eaeaea] rounded-xl shadow-lg p-3 z-50">
+                <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Sort By Date</h3>
+                <div className="flex flex-col gap-1">
+                  <button 
+                    onClick={() => { setSortOrder('newest'); setIsFilterOpen(false); }}
+                    className={`text-left px-3 py-2 text-sm rounded-md transition-colors ${sortOrder === 'newest' ? 'bg-[#eef8f2] text-[#00A14B] font-medium' : 'text-gray-600 hover:bg-gray-50'}`}
+                  >
+                    Newest First
+                  </button>
+                  <button 
+                    onClick={() => { setSortOrder('oldest'); setIsFilterOpen(false); }}
+                    className={`text-left px-3 py-2 text-sm rounded-md transition-colors ${sortOrder === 'oldest' ? 'bg-[#eef8f2] text-[#00A14B] font-medium' : 'text-gray-600 hover:bg-gray-50'}`}
+                  >
+                    Oldest First
+                  </button>
+                </div>
+              </div>
+            )}
+
             <button onClick={() => fetchEmails()} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
               <RefreshCw className={`h-4 w-4 ${isLoadingEmails ? 'animate-spin text-[#00A14B]' : ''}`} />
             </button>
@@ -215,7 +264,7 @@ export function Dashboard() {
         {/* List Content */}
         <div className="flex-1 overflow-auto bg-white">
           <EmailTable 
-            emails={emails} 
+            emails={displayedEmails} 
             isLoading={isLoadingEmails} 
             type={isSearching ? 'SEARCH' : activeTab} 
           />

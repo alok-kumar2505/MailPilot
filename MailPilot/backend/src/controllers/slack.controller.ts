@@ -52,7 +52,8 @@ export class SlackController {
         .onConflict('user_id')
         .merge();
 
-      res.send('Slack connected successfully! You can close this window.');
+      // Redirect back to frontend dashboard
+      res.redirect(`${env.FRONTEND_URL}/dashboard`);
     } catch (error) {
       next(error);
     }
