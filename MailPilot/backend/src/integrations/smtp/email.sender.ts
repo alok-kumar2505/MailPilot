@@ -27,8 +27,8 @@ export class EmailSender {
       from: `"ReachInbox Email Scheduler" <${fromEmail}>`,
       to: recipient,
       subject: subject,
-      text: body,
-      html: `<p>${body.replace(/\n/g, '<br>')}</p>`,
+      text: body.replace(/<[^>]*>?/gm, ''),
+      html: body,
     });
 
     return {

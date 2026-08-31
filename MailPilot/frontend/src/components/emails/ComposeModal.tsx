@@ -23,6 +23,15 @@ export function ComposeModal({ isOpen, onClose, onSuccess }: ComposeModalProps) 
   const [recipients, setRecipients] = useState<string[]>([]);
   const [singleRecipient, setSingleRecipient] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const editorRef = useRef<HTMLDivElement>(null);
+
+  const handleFormat = (command: string, value?: string) => {
+    document.execCommand(command, false, value);
+    editorRef.current?.focus();
+    if (editorRef.current) {
+      setBody(editorRef.current.innerHTML);
+    }
+  };
 
   const [attachments, setAttachments] = useState<File[]>([]);
   const attachmentInputRef = useRef<HTMLInputElement>(null);
@@ -187,6 +196,14 @@ export function ComposeModal({ isOpen, onClose, onSuccess }: ComposeModalProps) 
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-white overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+      <style>{`
+        [contenteditable=true]:empty:before {
+          content: attr(placeholder);
+          color: #d1d5db;
+          pointer-events: none;
+          display: block;
+        }
+      `}</style>
       
       {/* Top Navigation */}
       <header className="h-16 border-b border-[#eaeaea] flex items-center justify-between px-6 bg-white relative">
@@ -345,20 +362,25 @@ export function ComposeModal({ isOpen, onClose, onSuccess }: ComposeModalProps) 
             <button className="p-1.5 hover:bg-gray-100 rounded-md transition-colors"><ArrowLeft className="w-4 h-4" /></button>
             <div className="w-px h-5 bg-gray-200 mx-1"></div>
             <button className="p-1.5 hover:bg-gray-100 rounded-md transition-colors font-serif font-bold text-sm">Tt</button>
-            <button className="p-1.5 hover:bg-gray-100 rounded-md transition-colors"><Bold className="w-4 h-4" /></button>
-            <button className="p-1.5 hover:bg-gray-100 rounded-md transition-colors"><Italic className="w-4 h-4" /></button>
-            <button className="p-1.5 hover:bg-gray-100 rounded-md transition-colors"><Underline className="w-4 h-4" /></button>
+            <button onClick={() => handleFormat('bold')} className="p-1.5 hover:bg-gray-100 rounded-md transition-colors text-gray-600"><Bold className="w-4 h-4" /></button>
+            <button onClick={() => handleFormat('italic')} className="p-1.5 hover:bg-gray-100 rounded-md transition-colors text-gray-600"><Italic className="w-4 h-4" /></button>
+            <button onClick={() => handleFormat('underline')} className="p-1.5 hover:bg-gray-100 rounded-md transition-colors text-gray-600"><Underline className="w-4 h-4" /></button>
             <div className="w-px h-5 bg-gray-200 mx-1"></div>
-            <button className="p-1.5 hover:bg-gray-100 rounded-md transition-colors"><List className="w-4 h-4" /></button>
-            <button className="p-1.5 hover:bg-gray-100 rounded-md transition-colors"><ListOrdered className="w-4 h-4" /></button>
-            <button className="p-1.5 hover:bg-gray-100 rounded-md transition-colors"><Link className="w-4 h-4" /></button>
+            <button onClick={() => handleFormat('insertUnorderedList')} className="p-1.5 hover:bg-gray-100 rounded-md transition-colors text-gray-600"><List className="w-4 h-4" /></button>
+            <button onClick={() => handleFormat('insertOrderedList')} className="p-1.5 hover:bg-gray-100 rounded-md transition-colors text-gray-600"><ListOrdered className="w-4 h-4" /></button>
+            <button onClick={() => {
+              const url = prompt('Enter link URL:');
+              if (url) handleFormat('createLink', url);
+            }} className="p-1.5 hover:bg-gray-100 rounded-md transition-colors text-gray-600"><Link className="w-4 h-4" /></button>
           </div>
           
-          <textarea 
-            className="flex-1 w-full bg-transparent p-6 text-sm text-gray-800 focus:outline-none resize-none placeholder-gray-300"
+          <div 
+            ref={editorRef}
+            contentEditable
+            className="flex-1 w-full bg-transparent p-6 text-sm text-gray-800 focus:outline-none placeholder-gray-300 overflow-y-auto"
+            onInput={(e) => setBody(e.currentTarget.innerHTML)}
+            style={{ minHeight: '300px' }}
             placeholder="Type Your Reply..."
-            value={body}
-            onChange={(e) => setBody(e.target.value)}
           />
         </div>
 

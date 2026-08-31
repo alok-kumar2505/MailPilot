@@ -23,9 +23,9 @@ const emailWorker = new Worker(
 
     const senderId = claimedJob.sender_id || 'default';
 
-    // 2. RATE LIMITING: Check Redis atomic counters per sender per hour window
+    // 2. RATE LIMITING: Check Redis atomic counters per batch per hour window
     const currentHour = new Date().toISOString().slice(0, 13); // e.g. "2026-09-01T10"
-    const rateKey = `email-rate:${senderId}:${currentHour}`;
+    const rateKey = `email-rate:batch:${claimedJob.batch_id}:${currentHour}`;
     const count = await redis.incr(rateKey);
     
     if (count === 1) {

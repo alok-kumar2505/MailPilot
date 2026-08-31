@@ -162,7 +162,7 @@ export function EmailTable({ emails, isLoading, type, onUpdate }: EmailTableProp
               </div>
             </div>
             <div className="p-8 overflow-y-auto bg-white flex-1 min-h-[200px]">
-              <div className="prose prose-sm max-w-none text-[#333] leading-relaxed" dangerouslySetInnerHTML={{ __html: selectedPreviewEmail.body.replace(/\n/g, '<br/>') }} />
+              <div className="prose prose-sm max-w-none text-[#333] leading-relaxed break-words [word-break:break-word]" dangerouslySetInnerHTML={{ __html: selectedPreviewEmail.body.replace(/\n/g, '<br/>') }} />
             </div>
           </div>
         </div>

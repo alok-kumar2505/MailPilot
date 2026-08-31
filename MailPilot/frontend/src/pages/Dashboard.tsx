@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../services/api';
 import { LogOut, Search, RefreshCw, Clock, Send, Filter, ChevronDown } from 'lucide-react';
@@ -24,6 +24,24 @@ export function Dashboard() {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest');
   const [showFavourites, setShowFavourites] = useState(false);
+
+  // Refs for click outside
+  const filterRef = useRef<HTMLDivElement>(null);
+  const userDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Click outside listener
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (filterRef.current && !filterRef.current.contains(event.target as Node)) {
+        setIsFilterOpen(false);
+      }
+      if (userDropdownRef.current && !userDropdownRef.current.contains(event.target as Node)) {
+        setIsUserDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // Stats state
   const [stats, setStats] = useState({ scheduled: 0, sent: 0 });
@@ -124,7 +142,7 @@ export function Dashboard() {
         </div>
 
         {/* User Profile */}
-        <div className="relative mb-6">
+        <div className="relative mb-6" ref={userDropdownRef}>
           <button 
             onClick={() => setIsUserDropdownOpen(!isUserDropdownOpen)}
             className="w-full bg-[#f7f8f9] rounded-xl p-3 flex items-center justify-between border border-[#eee] hover:bg-[#f0f2f5] transition-colors"
@@ -228,7 +246,7 @@ export function Dashboard() {
               className="w-full bg-[#f4f5f7] border-none rounded-full py-2 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-[#00A14B]/30 transition-shadow"
             />
           </div>
-          <div className="flex items-center gap-3 text-gray-400 relative">
+          <div className="flex items-center gap-3 text-gray-400 relative" ref={filterRef}>
             <button 
               onClick={() => setIsFilterOpen(!isFilterOpen)}
               className={`p-2 rounded-full transition-colors ${isFilterOpen ? 'bg-gray-100 text-[#00A14B]' : 'hover:bg-gray-100'}`}
