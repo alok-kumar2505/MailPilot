@@ -18,6 +18,8 @@ export function Dashboard() {
   const [isLoadingEmails, setIsLoadingEmails] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
   
   // Filter state
   const [isFilterOpen, setIsFilterOpen] = useState(false);
@@ -58,9 +60,10 @@ export function Dashboard() {
     setIsLoadingEmails(true);
     try {
       const endpoint = activeTab === 'SCHEDULED' ? '/api/emails/scheduled' : '/api/emails/sent';
-      const query = showFavourites ? '?favourite=true' : '';
+      const query = `?page=${currentPage}&limit=20${showFavourites ? '&favourite=true' : ''}`;
       const response = await api.get<PaginatedResponse<EmailJob>>(`${endpoint}${query}`);
       setEmails(response.data.data);
+      setTotalPages(Math.ceil(response.data.pagination.total / 20) || 1);
       
       // Fetch stats
       const statsResponse = await api.get('/api/emails/stats');
@@ -70,7 +73,7 @@ export function Dashboard() {
     } finally {
       setIsLoadingEmails(false);
     }
-  }, [activeTab]);
+  }, [activeTab, showFavourites, currentPage]);
 
   const handleSearch = useCallback(async (query: string) => {
     if (!query.trim()) {
@@ -82,14 +85,15 @@ export function Dashboard() {
     setIsSearching(true);
     setIsLoadingEmails(true);
     try {
-      const response = await api.get<SearchResponse>(`/api/emails/search?q=${encodeURIComponent(query)}`);
-      setEmails(response.data.results);
+      const response = await api.get<SearchResponse>(`/api/emails/search?q=${encodeURIComponent(query)}&page=${currentPage}&limit=20`);
+      setEmails(response.data.data);
+      setTotalPages(Math.ceil(response.data.pagination.total / 20) || 1);
     } catch (error) {
       toast.error('Search failed');
     } finally {
       setIsLoadingEmails(false);
     }
-  }, [fetchEmails]);
+  }, [fetchEmails, currentPage]);
 
   useEffect(() => {
     checkSlackStatus();
@@ -99,7 +103,7 @@ export function Dashboard() {
     if (!isSearching) {
       fetchEmails();
     }
-  }, [fetchEmails, isSearching, showFavourites]);
+  }, [fetchEmails, isSearching, showFavourites, currentPage]);
 
   // Debounced search effect
   useEffect(() => {
@@ -114,6 +118,7 @@ export function Dashboard() {
   const handleComposeSuccess = () => {
     setActiveTab('SCHEDULED');
     setSearchQuery('');
+    setCurrentPage(1);
     setIsSearching(false);
     fetchEmails();
   };
@@ -198,7 +203,7 @@ export function Dashboard() {
           <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 pl-2">Core</p>
           
           <button
-            onClick={() => { setActiveTab('SCHEDULED'); setSearchQuery(''); }}
+            onClick={() => { setActiveTab('SCHEDULED'); setSearchQuery(''); setCurrentPage(1); }}
             className={`flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
               activeTab === 'SCHEDULED' && !isSearching
                 ? 'bg-[#eef8f2] text-[#00A14B]'
@@ -213,7 +218,7 @@ export function Dashboard() {
           </button>
 
           <button
-            onClick={() => { setActiveTab('SENT'); setSearchQuery(''); }}
+            onClick={() => { setActiveTab('SENT'); setSearchQuery(''); setCurrentPage(1); }}
             className={`flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
               activeTab === 'SENT' && !isSearching
                 ? 'bg-[#eef8f2] text-[#00A14B]'
@@ -238,7 +243,7 @@ export function Dashboard() {
             <input
               type="text"
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
               placeholder="Search"
               className="w-full bg-[#f4f5f7] border-none rounded-full py-2 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-[#00A14B]/30 transition-shadow"
             />
@@ -277,7 +282,7 @@ export function Dashboard() {
                       type="checkbox" 
                       className="mr-2 accent-[#00A14B]"
                       checked={showFavourites}
-                      onChange={(e) => setShowFavourites(e.target.checked)}
+                      onChange={(e) => { setShowFavourites(e.target.checked); setCurrentPage(1); }}
                     />
                     Starred Only
                   </label>
@@ -300,6 +305,29 @@ export function Dashboard() {
             onUpdate={fetchEmails}
           />
         </div>
+        
+        {/* Pagination Footer */}
+        {totalPages > 1 && (
+          <div className="h-14 border-t border-[#eaeaea] bg-white flex items-center justify-between px-6">
+            <button
+              disabled={currentPage === 1}
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              className="px-3 py-1 text-sm font-medium text-gray-600 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100 rounded-md transition-colors"
+            >
+              Previous
+            </button>
+            <span className="text-sm text-gray-500 font-medium">
+              Page {currentPage} of {totalPages}
+            </span>
+            <button
+              disabled={currentPage === totalPages}
+              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+              className="px-3 py-1 text-sm font-medium text-gray-600 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100 rounded-md transition-colors"
+            >
+              Next
+            </button>
+          </div>
+        )}
       </main>
 
       <ComposeModal 

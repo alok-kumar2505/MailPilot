@@ -81,11 +81,23 @@ export class EmailController {
     try {
       if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
       const q = req.query.q as string;
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 20;
+
       if (!q) {
         return res.status(400).json({ error: 'Query parameter "q" is required' });
       }
-      const results = await emailService.searchEmails(req.user.id, q);
-      res.json({ results });
+      
+      const { data, total } = await emailService.searchEmails(req.user.id, q, page, limit);
+      
+      res.json({
+        data,
+        pagination: {
+          total,
+          page,
+          limit,
+        },
+      });
     } catch (error) {
       next(error);
     }

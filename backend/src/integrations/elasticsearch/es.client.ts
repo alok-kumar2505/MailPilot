@@ -44,10 +44,13 @@ export class ElasticsearchClient {
     }
   }
 
-  async searchEmails(userId: string, query: string) {
+  async searchEmails(userId: string, query: string, page: number, limit: number) {
     try {
+      const from = (page - 1) * limit;
       const result = await elasticClient.search({
         index: INDEX_NAME,
+        from,
+        size: limit,
         query: {
           bool: {
             must: [
@@ -62,10 +65,16 @@ export class ElasticsearchClient {
           }
         }
       });
-      return result.hits.hits.map((hit: any) => hit._source);
+      
+      const hits = result.hits.hits.map((hit: any) => hit._source);
+      const total = typeof result.hits.total === 'number' 
+        ? result.hits.total 
+        : result.hits.total?.value || 0;
+        
+      return { data: hits, total };
     } catch (error: any) {
       console.error('[Elasticsearch] Search failed:', error.message);
-      return [];
+      return { data: [], total: 0 };
     }
   }
 }

@@ -51,6 +51,4 @@ export interface SlackStatus {
   teamName?: string;
 }
 
-export interface SearchResponse {
-  results: EmailJob[];
-}
+export type SearchResponse = PaginatedResponse<EmailJob>;

@@ -93,8 +93,8 @@ export class EmailService {
     return emailRepository.findJobsByUserIdAndStatus(userId, ['SENT', 'FAILED'], page, limit, isFavourited);
   }
 
-  async searchEmails(userId: string, query: string) {
-    return esClient.searchEmails(userId, query);
+  async searchEmails(userId: string, query: string, page: number, limit: number) {
+    return esClient.searchEmails(userId, query, page, limit);
   }
 
   async getEmailJobById(userId: string, id: string) {
