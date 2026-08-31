@@ -13,7 +13,10 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@bull-board/api": "^9.6.0",
+    "@bull-board/express": "^9.6.0",
     "@elastic/elasticsearch": "^9.4.3",
+    "@slack/web-api": "^8.1.1",
     "bullmq": "^6.3.2",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",

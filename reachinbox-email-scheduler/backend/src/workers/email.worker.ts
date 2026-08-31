@@ -3,7 +3,7 @@ import { redis } from '../config/redis';
 import { env } from '../config/env';
 import { emailRepository } from '../repositories/email.repository';
 import { senderRepository } from '../repositories/sender.repository';
-import { emailSender } from '../integrations/email.sender';
+import { emailSender } from '../integrations/smtp/email.sender';
 
 const emailWorker = new Worker(
   'email-send',

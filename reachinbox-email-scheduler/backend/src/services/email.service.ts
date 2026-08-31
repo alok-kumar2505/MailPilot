@@ -4,6 +4,7 @@ import { senderRepository } from '../repositories/sender.repository';
 import { CreateEmailBatchDto } from '../schemas/email.schema';
 import { emailQueue } from '../queues/email.queue';
 import { env } from '../config/env';
+import { esClient } from '../integrations/elasticsearch/es.client';
 
 export class EmailService {
   async ensureDummyUser(): Promise<string> {
@@ -75,6 +76,9 @@ export class EmailService {
       },
       jobsData
     );
+
+    // Asynchronously push to Elasticsearch
+    esClient.indexJobs(result.jobs).catch(() => {});
 
     // Enqueue each job in BullMQ
     const now = Date.now();
