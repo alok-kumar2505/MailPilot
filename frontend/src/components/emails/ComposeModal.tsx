@@ -174,6 +174,23 @@ export function ComposeModal({ isOpen, onClose, onSuccess }: ComposeModalProps) 
 
     try {
       setIsSubmitting(true);
+      
+      const parsedAttachments = await Promise.all(
+        attachments.map(async (file) => {
+          return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = () => resolve({
+              filename: file.name,
+              content: (reader.result as string).split(',')[1],
+              contentType: file.type || 'application/octet-stream',
+              size: file.size
+            });
+            reader.onerror = error => reject(error);
+          });
+        })
+      );
+
       await api.post('/api/emails', {
         subject,
         body,
@@ -181,6 +198,7 @@ export function ComposeModal({ isOpen, onClose, onSuccess }: ComposeModalProps) 
         delayBetweenMs: delaySec * 1000,
         hourlyLimit,
         recipients: allRecipients,
+        attachments: parsedAttachments
       });
       toast.success('Emails scheduled successfully!');
       onSuccess();
@@ -237,24 +255,48 @@ export function ComposeModal({ isOpen, onClose, onSuccess }: ComposeModalProps) 
 
         {/* Send Later Panel Popup */}
         {showSendLater && (
-          <div className="absolute top-16 right-6 w-[280px] bg-white border border-[#eaeaea] rounded-xl shadow-[0_10px_40px_rgba(0,0,0,0.08)] p-1 z-50">
-            <div className="p-3 border-b border-[#eaeaea]">
-              <h3 className="font-semibold text-sm text-[#333]">Send Later</h3>
-              <p className="text-xs text-gray-500 mt-1">
-                {selectedTime ? format(selectedTime, 'PPpp') : 'Pick date & time'}
-              </p>
+          <div className="absolute top-16 right-6 w-[280px] bg-white border border-[#eaeaea] rounded-xl shadow-[0_10px_40px_rgba(0,0,0,0.08)] p-0 z-50">
+            <div className="p-4 pb-2">
+              <h3 className="font-semibold text-[15px] text-[#333]">Send Later</h3>
             </div>
-            <div className="py-4 px-4">
-              <input 
-                type="datetime-local"
-                className="w-full text-sm text-gray-800 border border-gray-200 rounded-md p-2 focus:outline-none focus:border-[#00A14B]"
-                value={selectedTime ? format(selectedTime, "yyyy-MM-dd'T'HH:mm") : ''}
-                onChange={(e) => setSelectedTime(e.target.value ? new Date(e.target.value) : null)}
-              />
+            
+            <div className="px-4 py-2 border-b border-[#eaeaea]">
+              <div className="relative">
+                <input 
+                  type="datetime-local"
+                  className="w-full text-sm text-gray-500 placeholder-gray-400 bg-transparent py-2 focus:outline-none"
+                  value={selectedTime ? format(selectedTime, "yyyy-MM-dd'T'HH:mm") : ''}
+                  onChange={(e) => setSelectedTime(e.target.value ? new Date(e.target.value) : null)}
+                  placeholder="Pick date & time"
+                />
+              </div>
             </div>
-            <div className="p-3 border-t border-[#eaeaea] flex justify-end gap-2">
-              <button onClick={() => setShowSendLater(false)} className="text-sm font-medium text-gray-500 hover:text-gray-800 px-3 py-1.5 rounded-md">Cancel</button>
-              <button onClick={() => setShowSendLater(false)} className="text-sm font-medium border border-[#00A14B] text-[#00A14B] px-4 py-1.5 rounded-full hover:bg-[#eef8f2]">Done</button>
+
+            <div className="py-2 flex flex-col">
+              {[
+                { label: 'Tomorrow', h: 9 },
+                { label: 'Tomorrow, 10:00 AM', h: 10 },
+                { label: 'Tomorrow, 11:00 AM', h: 11 },
+                { label: 'Tomorrow, 3:00 PM', h: 15 }
+              ].map(opt => (
+                <button 
+                  key={opt.label}
+                  onClick={() => {
+                    const d = new Date();
+                    d.setDate(d.getDate() + 1);
+                    d.setHours(opt.h, 0, 0, 0);
+                    setSelectedTime(d);
+                  }}
+                  className="text-left px-4 py-2.5 text-sm text-[#4b5563] hover:bg-gray-50 hover:text-black transition-colors"
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+
+            <div className="p-3 border-t border-[#eaeaea] flex justify-end gap-3 items-center">
+              <button onClick={() => setShowSendLater(false)} className="text-[13px] font-semibold text-[#333] hover:text-black px-2 py-1">Cancel</button>
+              <button onClick={() => setShowSendLater(false)} className="text-[13px] font-semibold border border-[#00A14B] text-[#00A14B] px-5 py-1.5 rounded-full hover:bg-[#eef8f2]">Done</button>
             </div>
           </div>
         )}
@@ -278,9 +320,9 @@ export function ComposeModal({ isOpen, onClose, onSuccess }: ComposeModalProps) 
             
             <div className="flex-1 flex flex-wrap gap-2 items-center">
               {recipients.map((email) => (
-                <div key={email} className="bg-gray-100 border border-gray-200 px-2 py-1 rounded-md text-xs font-medium text-gray-700 flex items-center gap-1 shadow-sm">
+                <div key={email} className="bg-[#e8f7ec] border border-[#00A14B] px-3 py-1 rounded-full text-xs font-medium text-[#333] flex items-center gap-1 shadow-sm">
                   {email}
-                  <button onClick={() => removeRecipient(email)} className="text-gray-400 hover:text-red-500 ml-0.5">
+                  <button onClick={() => removeRecipient(email)} className="text-gray-500 hover:text-red-500 ml-1">
                     <X className="w-3 h-3" />
                   </button>
                 </div>

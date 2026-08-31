@@ -9,6 +9,7 @@ export class EmailRepository {
       start_time: Date;
       delay_between_ms: number;
       hourly_limit: number;
+      attachments?: any;
     },
     jobsData: Array<{
       user_id: string;
@@ -18,6 +19,7 @@ export class EmailRepository {
       body: string;
       scheduled_at: Date;
       status: string;
+      attachments?: any;
     }>
   ) {
     return db.transaction(async (trx) => {

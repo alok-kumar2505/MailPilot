@@ -123,8 +123,8 @@ export function Dashboard() {
 
   const displayedEmails = useMemo(() => {
     let result = [...emails];
-    // Backend returns newest first. Reverse for oldest first.
-    if (sortOrder === 'oldest') {
+    // Backend returns oldest first (asc). Reverse for newest first.
+    if (sortOrder === 'newest') {
       result.reverse();
     }
     return result;
@@ -233,7 +233,7 @@ export function Dashboard() {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col border-l border-[#eaeaea]">
+      <main className="flex-1 flex flex-col border-l border-[#eaeaea] min-w-0">
         {/* Top bar */}
         <header className="h-16 flex items-center px-6 gap-4 border-b border-[#eaeaea] bg-white">
           <div className="flex-1 max-w-2xl relative">
@@ -295,7 +295,7 @@ export function Dashboard() {
         </header>
 
         {/* List Content */}
-        <div className="flex-1 overflow-auto bg-white">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden bg-white">
           <EmailTable 
             emails={displayedEmails} 
             isLoading={isLoadingEmails} 

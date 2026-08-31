@@ -37,6 +37,7 @@ export class EmailService {
         body: data.body,
         scheduled_at: new Date(currentScheduledTime),
         status: 'SCHEDULED',
+        attachments: data.attachments ? JSON.stringify(data.attachments) : null,
       };
     });
 
@@ -50,6 +51,7 @@ export class EmailService {
         start_time: startTime,
         delay_between_ms: actualDelayMs,
         hourly_limit: data.hourlyLimit,
+        attachments: data.attachments ? JSON.stringify(data.attachments) : null,
       },
       jobsData
     );

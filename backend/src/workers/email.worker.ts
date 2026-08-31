@@ -73,11 +73,24 @@ const emailWorker = new Worker(
     try {
       // 4. SEND EMAIL VIA SMTP
       console.log(`[Worker] Sending email to ${claimedJob.recipient} via SMTP...`);
+      
+      let attachments: any[] = [];
+      if (claimedJob.attachments) {
+        try {
+          attachments = typeof claimedJob.attachments === 'string' 
+            ? JSON.parse(claimedJob.attachments) 
+            : claimedJob.attachments;
+        } catch (e) {
+          console.error(`[Worker] Failed to parse attachments for job ${emailJobId}`);
+        }
+      }
+
       const result = await emailSender.sendEmail(
         claimedJob.recipient,
         claimedJob.subject,
         claimedJob.body,
-        senderCredentials
+        senderCredentials,
+        attachments
       );
 
       // 5. SUCCESS: Mark as SENT in PostgreSQL

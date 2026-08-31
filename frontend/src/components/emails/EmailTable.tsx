@@ -146,23 +146,68 @@ export function EmailTable({ emails, isLoading, type, onUpdate }: EmailTableProp
 
       {selectedPreviewEmail && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm animate-in fade-in" onClick={() => setSelectedPreviewEmail(null)}>
-          <div className="bg-white rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.15)] w-full max-w-2xl overflow-hidden flex flex-col max-h-[85vh] animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between px-6 py-4 border-b border-[#eaeaea]">
-              <h2 className="text-xl font-bold text-[#222] truncate pr-4">{selectedPreviewEmail.subject}</h2>
-              <button onClick={() => setSelectedPreviewEmail(null)} className="p-2 hover:bg-gray-100 rounded-full text-gray-500 transition-colors"><X className="w-5 h-5"/></button>
-            </div>
-            <div className="px-6 py-4 bg-[#f8f9fa] border-b border-[#eaeaea] flex flex-col gap-1.5">
-              <div className="text-sm flex items-center">
-                <span className="w-16 font-semibold text-gray-400 uppercase tracking-wider text-[11px]">To</span> 
-                <span className="text-[#222] font-medium bg-white border border-[#eaeaea] px-2 py-0.5 rounded shadow-sm">{selectedPreviewEmail.recipient}</span>
+          <div className="bg-white rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.15)] w-full max-w-3xl overflow-hidden flex flex-col max-h-[85vh] animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+            {/* Header / Subject */}
+            <div className="flex items-start justify-between px-8 py-6 pb-2">
+              <h2 className="text-[22px] text-[#1f1f1f] pr-4 leading-snug">{selectedPreviewEmail.subject}</h2>
+              <div className="flex items-center gap-3">
+                <button 
+                  onClick={(e) => toggleFavourite(selectedPreviewEmail, e)}
+                  className={`transition-colors mt-1 ${selectedPreviewEmail.is_favourited ? 'text-yellow-400 drop-shadow-sm' : 'text-gray-300 hover:text-yellow-400'}`}
+                >
+                  <Star className="h-[18px] w-[18px]" fill={selectedPreviewEmail.is_favourited ? "currentColor" : "none"} />
+                </button>
+                <button onClick={() => setSelectedPreviewEmail(null)} className="p-1 hover:bg-gray-100 rounded-full text-gray-500 transition-colors"><X className="w-5 h-5"/></button>
               </div>
-              <div className="text-sm flex items-center mt-1">
-                <span className="w-16 font-semibold text-gray-400 uppercase tracking-wider text-[11px]">Date</span> 
-                <span className="text-gray-600">{format(new Date(selectedPreviewEmail.sent_at || selectedPreviewEmail.scheduled_at), 'PPPPp')}</span>
+            </div>
+
+            {/* Sender Info Row */}
+            <div className="px-8 py-4 flex items-start justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-[#00A14B] text-white flex items-center justify-center font-medium text-lg">
+                  {selectedPreviewEmail.user_id ? 'U' : 'A'}
+                </div>
+                <div className="flex flex-col">
+                  <div className="flex items-baseline gap-2">
+                    <span className="font-bold text-[#222] text-[15px]">Sender Name</span>
+                    <span className="text-gray-500 text-[13px]">&lt;sender@example.com&gt;</span>
+                  </div>
+                  <div className="text-gray-500 text-[12px] flex items-center gap-1 mt-0.5">
+                    to me <span className="text-[10px]">▼</span>
+                  </div>
+                </div>
+              </div>
+              <div className="text-gray-500 text-sm mt-1">
+                {format(new Date(selectedPreviewEmail.sent_at || selectedPreviewEmail.scheduled_at), "MMM d, h:mm a")}
               </div>
             </div>
-            <div className="p-8 overflow-y-auto bg-white flex-1 min-h-[200px]">
-              <div className="prose prose-sm max-w-none text-[#333] leading-relaxed break-words [word-break:break-word]" dangerouslySetInnerHTML={{ __html: selectedPreviewEmail.body.replace(/\n/g, '<br/>') }} />
+
+            {/* Body */}
+            <div className="px-8 py-4 overflow-y-auto bg-white flex-1 min-h-[200px]">
+              <div className="prose prose-sm max-w-none text-[#222] leading-relaxed break-words [word-break:break-word] text-[15px]" dangerouslySetInnerHTML={{ __html: selectedPreviewEmail.body.replace(/\n/g, '<br/>') }} />
+              
+              {/* Attachments */}
+              {selectedPreviewEmail.attachments && (
+                <div className="mt-8 pt-6 border-t border-gray-100 flex gap-4 flex-wrap">
+                  {(typeof selectedPreviewEmail.attachments === 'string' 
+                      ? JSON.parse(selectedPreviewEmail.attachments) 
+                      : selectedPreviewEmail.attachments).map((att: any, idx: number) => (
+                    <div key={idx} className="flex flex-col border border-gray-200 rounded-xl overflow-hidden w-48 hover:bg-gray-50 cursor-pointer transition-colors">
+                      <div className="h-28 bg-blue-50 flex items-center justify-center overflow-hidden border-b border-gray-100">
+                        {att.contentType?.startsWith('image/') && att.content ? (
+                          <img src={`data:${att.contentType};base64,${att.content}`} className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="text-gray-400 font-medium text-4xl uppercase">{att.filename.split('.').pop()}</div>
+                        )}
+                      </div>
+                      <div className="p-3">
+                        <div className="text-[13px] font-semibold text-[#333] truncate" title={att.filename}>{att.filename}</div>
+                        <div className="text-[11px] text-gray-500 mt-0.5">{att.size ? (att.size / 1024 / 1024).toFixed(1) + ' MB' : 'Unknown size'}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>

@@ -9,6 +9,14 @@ export const createEmailBatchSchema = z.object({
   recipients: z
     .array(z.string().email('Invalid email format in recipients'))
     .min(1, 'At least one recipient is required'),
+  attachments: z.array(
+    z.object({
+      filename: z.string(),
+      content: z.string(), // Base64 string
+      contentType: z.string(),
+      size: z.number().optional()
+    })
+  ).optional(),
 });
 
 export type CreateEmailBatchDto = z.infer<typeof createEmailBatchSchema>;
